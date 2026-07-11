@@ -1,0 +1,19 @@
+classDiagram
+    class Base["Base"] {
+        +Label string
+        +Name() string
+    }
+    class Circle["Circle"] {
+        +Radius float64
+        +Area() float64
+    }
+    class Named["Named"] {
+        <<interface>>
+        +Name() string
+    }
+    class Shape["Shape"] {
+        <<interface>>
+        +Area() float64
+    }
+    Circle --|> Base
+    Shape --|> Named

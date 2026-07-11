@@ -9,6 +9,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+
+	"github.com/shimabox/diagoram/internal/diagram"
+	"github.com/shimabox/diagoram/internal/gocode"
+	"github.com/shimabox/diagoram/internal/render"
+	"github.com/shimabox/diagoram/internal/render/mermaid"
 )
 
 // version is the diagoram version string. It defaults to "dev" for
@@ -23,8 +28,15 @@ const usage = `Usage: diagoram [options] <dir>
 Analyze Go source code under <dir> and generate a diagram.
 
 Options:
-  -h, --help       Show this help message and exit
-  -v, --version    Show version information and exit
+  --class-diagram    Output a class diagram (default; this is
+                      currently the only diagram diagoram can draw)
+  --include='glob'   Only analyze files matching glob (repeatable;
+                      default "*.go")
+  --exclude='glob'   Skip files matching glob (repeatable; default
+                      "*_test.go"; repeating --exclude replaces the
+                      default rather than adding to it)
+  -h, --help          Show this help message and exit
+  -v, --version       Show version information and exit
 `
 
 // Options holds the parsed command-line options.
@@ -33,6 +45,20 @@ type Options struct {
 	Help bool
 	// Version requests that version information be printed.
 	Version bool
+	// ClassDiagram requests a class diagram. It has no effect yet: a
+	// class diagram is Run's only output, regardless of this flag; it
+	// exists so scripts can pass --class-diagram explicitly without an
+	// "unknown flag" error, ahead of --package-diagram being added in
+	// a later phase.
+	ClassDiagram bool
+	// Include is the list of glob patterns passed via --include
+	// (matched against a file's base name). Empty means gocode.Parse's
+	// default ("*.go").
+	Include []string
+	// Exclude is the list of glob patterns passed via --exclude
+	// (matched against a file's base name). Empty means gocode.Parse's
+	// default ("*_test.go").
+	Exclude []string
 	// Dir is the directory to analyze.
 	Dir string
 }
@@ -52,6 +78,15 @@ func parseArgs(args []string, stderr io.Writer) (*Options, error) {
 	fs.BoolVar(&opts.Help, "help", false, "show this help message and exit")
 	fs.BoolVar(&opts.Version, "v", false, "show version information and exit")
 	fs.BoolVar(&opts.Version, "version", false, "show version information and exit")
+	fs.BoolVar(&opts.ClassDiagram, "class-diagram", false, "output a class diagram (default)")
+	fs.Func("include", "only analyze files matching this glob (repeatable; default \"*.go\")", func(v string) error {
+		opts.Include = append(opts.Include, v)
+		return nil
+	})
+	fs.Func("exclude", "skip files matching this glob (repeatable; default \"*_test.go\")", func(v string) error {
+		opts.Exclude = append(opts.Exclude, v)
+		return nil
+	})
 
 	if err := fs.Parse(args); err != nil {
 		return nil, err
@@ -103,7 +138,26 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	// Analysis and diagram rendering are implemented in later phases.
-	fmt.Fprintf(stdout, "diagoram: %s (analysis not yet implemented)\n", opts.Dir)
+	pkgs, warnings, err := gocode.Parse(opts.Dir, gocode.ParseOptions{
+		Includes: opts.Include,
+		Excludes: opts.Exclude,
+	})
+	if err != nil {
+		fmt.Fprintf(stderr, "Error: cannot analyze %q: %v\n", opts.Dir, err)
+		return 1
+	}
+	for _, w := range warnings {
+		fmt.Fprintf(stderr, "Warning: %s\n", w.Error())
+	}
+
+	d := diagram.Build(pkgs)
+
+	out, err := mermaid.New().Render(d, render.Options{})
+	if err != nil {
+		fmt.Fprintf(stderr, "Error: cannot render diagram: %v\n", err)
+		return 1
+	}
+
+	fmt.Fprint(stdout, out)
 	return 0
 }

@@ -1,0 +1,23 @@
+classDiagram
+    namespace config {
+        class config_Config["Config"] {
+            +Debug bool
+            +DefaultColor attr.Color
+        }
+    }
+    namespace product {
+        class product_Product["Product"] {
+            +Name string
+            +Color attribute.Color
+            +Tags string[]
+            +PrimaryColor() attribute.Color
+        }
+    }
+    namespace product_attribute {
+        class product_attribute_Color["Color"] {
+            +Name string
+            +Hex string
+        }
+    }
+    config_Config ..> product_attribute_Color
+    product_Product ..> product_attribute_Color

@@ -90,14 +90,14 @@ classDiagram
 
 ## タスク（TDD 順）
 
-- [ ] 3-1. `diagram.Build` のテスト先行（fixture `basic` → Entry/Edge の期待値を table test）→ 実装
-- [ ] 3-2. パッケージ跨ぎ依存の解決（fixture `multi-package`）テスト → 実装
-- [ ] 3-3. 埋め込みエッジ（fixture `interfaces`）テスト → 実装
-- [ ] 3-4. mermaid レンダラ: fixture 4 種 × golden ファイル（`expected-class.mmd`）を先に書く → 実装
+- [x] 3-1. `diagram.Build` のテスト先行（fixture `basic` → Entry/Edge の期待値を table test）→ 実装
+- [x] 3-2. パッケージ跨ぎ依存の解決（fixture `multi-package`）テスト → 実装
+- [x] 3-3. 埋め込みエッジ（fixture `interfaces`）テスト → 実装
+- [x] 3-4. mermaid レンダラ: fixture 4 種 × golden ファイル（`expected-class.mmd`）を先に書く → 実装
   - golden の中身は実装前にオーケストレーターがレビューし「この図が欲しい」を確定させる（ここが振る舞い調整の要）
-- [ ] 3-5. CLI 統合の E2E テスト（`cli.Run` を fixture に向けて実行し golden 比較）
-- [ ] 3-6. ドッグフーディング: `go run ./cmd/diagoram .` を diagoram 自身に実行し、出力を GitHub/mermaid.live でレンダリング確認
-- [ ] 3-7. コードレビュー → コミット → **v0.1.0** タグ
+- [x] 3-5. CLI 統合の E2E テスト（`cli.Run` を fixture に向けて実行し golden 比較）
+- [x] 3-6. ドッグフーディング: `go run ./cmd/diagoram .` を diagoram 自身に実行し、出力を GitHub/mermaid.live でレンダリング確認
+- [x] 3-7. コードレビュー → コミット → **v0.1.0** タグ
 
 ## 受け入れ基準
 - fixture 4 種の golden テストが全緑
@@ -106,3 +106,10 @@ classDiagram
 
 ## スコープ外
 - パッケージ依存図（Phase 4）、rel-target 等のフィルタ（Phase 5）、PlantUML（Phase 6）
+
+## 実装時の決定事項（Phase 3 完了時に記録）
+- 型表記の Mermaid 安全化（render/mermaid/typeformat.go）: `TypeRef.String` を go/parser で再パースし、`[]T`→`T[]`、`map[K]V`→`Map~K,V~`、ジェネリクス `Box[int]`→`Box~int~`、匿名struct/func/chan/interface は裸のキーワードに縮約。実 mermaid パッケージの `mermaid.parse()` で全 golden + ドッグフード出力の構文正当性を検証済み
+- Entry.Doc は IR まで運ぶが Mermaid では描画しない（クラス本体に自由テキストの安全な置き場がないため。PlantUML レンダラで使う予定）
+- フィールド/メソッドが空の struct は `{ }` なしの 1 行、interface は `<<interface>>` があるため常にボディつき
+- import パス→ディレクトリ解決は最長サフィックス一致のヒューリスティック（diagram.resolveImportDir）。go.mod の module パス読み取りによる正確化は Phase 4 で行う
+- `--class-diagram` フラグは受理するのみ（デフォルト動作と同一。Phase 4 で --package-diagram との排他に使う）

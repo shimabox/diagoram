@@ -1,0 +1,19 @@
+classDiagram
+    class Box["Box"] {
+        +Value T
+        +Items T[]
+        +Get() T
+    }
+    class Item["Item"] {
+        +ID int
+    }
+    class Wrapper["Wrapper"] {
+        +Ptr *Item
+        +Slice Item[]
+        +PtrSlice *Item[]
+        +Matrix int[]
+        +Lookup Map~string,*Item~
+        +Anon struct
+        +Handler func
+    }
+    Wrapper ..> Item : *
