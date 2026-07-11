@@ -84,7 +84,7 @@ diagoram [options] <dir>
 | [1](01-phase1-foundation.md) | プロジェクト基盤 | CLI 骨格が動き、golden テスト基盤と CI がある | **完了** |
 | [2](02-phase2-analyzer.md) | 解析器 gocode | fixture の Go コードを言語モデルに変換できる | **完了** |
 | [3](03-phase3-mermaid-class-diagram.md) | IR + Mermaid クラス図 | **E2E で動く MVP**。`diagoram <dir>` がクラス図を出す | **完了 (v0.1.0)** |
-| [4](04-phase4-package-diagram.md) | パッケージ依存図 | 循環依存の赤線警告つきパッケージ図が出る | 未着手 |
+| [4](04-phase4-package-diagram.md) | パッケージ依存図 | 循環依存の赤線警告つきパッケージ図が出る | **完了 (v0.2.0)** |
 | [5](05-phase5-filters-and-implements.md) | フィルタ + interface 実装検出 + summary | 大規模プロジェクトで実用になる | 未着手 |
 | [6](06-phase6-plantuml.md) | PlantUML レンダラ | `--format=plantuml` が動く | 未着手 |
 | [7](07-phase7-docker-release.md) | Docker・README・ドッグフーディング | `docker run` で誰でも使える。README に自分自身の図 | 未着手 |

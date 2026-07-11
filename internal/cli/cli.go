@@ -28,11 +28,20 @@ const usage = `Usage: diagoram [options] <dir>
 Analyze Go source code under <dir> and generate a diagram.
 
 Options:
-  --class-diagram    Output a class diagram (default; this is
-                      currently the only diagram diagoram can draw)
-  --include='glob'   Only analyze files matching glob (repeatable;
+  --class-diagram     Output a class diagram (default). Cannot be
+                      combined with --package-diagram.
+  --package-diagram   Output a package dependency diagram instead of
+                      a class diagram. Packages that directly import
+                      each other (a two-package import cycle) are
+                      drawn with a red, bold, bidirectional arrow.
+                      Cannot be combined with --class-diagram.
+  --show-external     Also draw packages outside <dir> (the standard
+                      library, other modules) as light-colored nodes.
+                      Only affects --package-diagram; ignored
+                      otherwise.
+  --include='glob'    Only analyze files matching glob (repeatable;
                       default "*.go")
-  --exclude='glob'   Skip files matching glob (repeatable; default
+  --exclude='glob'    Skip files matching glob (repeatable; default
                       "*_test.go"; repeating --exclude replaces the
                       default rather than adding to it)
   -h, --help          Show this help message and exit
@@ -45,12 +54,19 @@ type Options struct {
 	Help bool
 	// Version requests that version information be printed.
 	Version bool
-	// ClassDiagram requests a class diagram. It has no effect yet: a
-	// class diagram is Run's only output, regardless of this flag; it
-	// exists so scripts can pass --class-diagram explicitly without an
-	// "unknown flag" error, ahead of --package-diagram being added in
-	// a later phase.
+	// ClassDiagram requests a class diagram. This is Run's default
+	// output, so passing it has no effect on its own; it exists so
+	// scripts can be explicit, and so Run can reject combining it with
+	// PackageDiagram.
 	ClassDiagram bool
+	// PackageDiagram requests a package dependency diagram instead of
+	// a class diagram. It cannot be combined with ClassDiagram.
+	PackageDiagram bool
+	// ShowExternal includes packages outside the analyzed directory
+	// (the standard library, other modules) in the package diagram, as
+	// light-colored nodes. It only affects PackageDiagram; it is
+	// harmless (silently ignored) otherwise.
+	ShowExternal bool
 	// Include is the list of glob patterns passed via --include
 	// (matched against a file's base name). Empty means gocode.Parse's
 	// default ("*.go").
@@ -79,6 +95,8 @@ func parseArgs(args []string, stderr io.Writer) (*Options, error) {
 	fs.BoolVar(&opts.Version, "v", false, "show version information and exit")
 	fs.BoolVar(&opts.Version, "version", false, "show version information and exit")
 	fs.BoolVar(&opts.ClassDiagram, "class-diagram", false, "output a class diagram (default)")
+	fs.BoolVar(&opts.PackageDiagram, "package-diagram", false, "output a package dependency diagram")
+	fs.BoolVar(&opts.ShowExternal, "show-external", false, "also draw packages outside <dir> in the package diagram")
 	fs.Func("include", "only analyze files matching this glob (repeatable; default \"*.go\")", func(v string) error {
 		opts.Include = append(opts.Include, v)
 		return nil
@@ -119,6 +137,11 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 
+	if opts.ClassDiagram && opts.PackageDiagram {
+		fmt.Fprintf(stderr, "Error: --class-diagram and --package-diagram cannot be used together. Pass only one to pick a diagram type.\n\n%s", usage)
+		return 1
+	}
+
 	if opts.Dir == "" {
 		fmt.Fprintf(stderr, "Error: missing required <dir> argument.\n\n%s", usage)
 		return 1
@@ -150,9 +173,18 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "Warning: %s\n", w.Error())
 	}
 
-	d := diagram.Build(pkgs)
-
-	out, err := mermaid.New().Render(d, render.Options{})
+	var out string
+	if opts.PackageDiagram {
+		modulePath, modErr := diagram.ReadModulePath(opts.Dir)
+		if modErr != nil {
+			fmt.Fprintf(stderr, "Error: cannot read go.mod in %q: %v\n", opts.Dir, modErr)
+			return 1
+		}
+		g := diagram.BuildPackageGraph(pkgs, modulePath, opts.ShowExternal)
+		out, err = mermaid.New().RenderPackageGraph(g, render.Options{})
+	} else {
+		out, err = mermaid.New().Render(diagram.Build(pkgs), render.Options{})
+	}
 	if err != nil {
 		fmt.Fprintf(stderr, "Error: cannot render diagram: %v\n", err)
 		return 1

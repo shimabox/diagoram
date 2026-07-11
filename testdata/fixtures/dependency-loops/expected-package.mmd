@@ -1,0 +1,10 @@
+flowchart TD
+    alpha["alpha"]
+    beta["beta"]
+    subgraph gamma["gamma"]
+        gamma_sub["sub"]
+    end
+    alpha <--> beta
+    alpha --> gamma
+    gamma --> gamma_sub
+    linkStyle 0 stroke:red,stroke-width:4px

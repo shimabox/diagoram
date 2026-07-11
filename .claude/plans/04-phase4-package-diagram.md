@@ -46,13 +46,13 @@ flowchart TD
 
 ## タスク（TDD 順）
 
-- [ ] 4-1. fixture 追加: `testdata/fixtures/dependency-loops/` — 相互に import し合う 2 パッケージ + 通常依存を含む構成（go.mod 付き）
-- [ ] 4-2. `go.mod` の module パス読み取り（テスト先行。go.mod 無しケースも）
-- [ ] 4-3. `BuildPackageGraph` のテスト先行（依存集計・対象外除外・相互依存フラグ）→ 実装
-- [ ] 4-4. mermaid パッケージ図レンダラ: golden（`expected-package.mmd`）を先に書きレビュー → 実装。linkStyle の安定性テストを含める
-- [ ] 4-5. CLI 統合 E2E テスト（`--package-diagram`、排他エラー、`--show-external`）
-- [ ] 4-6. ドッグフーディング: diagoram 自身のパッケージ図を目視確認
-- [ ] 4-7. コードレビュー → コミット → **v0.2.0** タグ
+- [x] 4-1. fixture 追加: `testdata/fixtures/dependency-loops/` — 相互に import し合う 2 パッケージ + 通常依存を含む構成（go.mod 付き）
+- [x] 4-2. `go.mod` の module パス読み取り（テスト先行。go.mod 無しケースも）
+- [x] 4-3. `BuildPackageGraph` のテスト先行（依存集計・対象外除外・相互依存フラグ）→ 実装
+- [x] 4-4. mermaid パッケージ図レンダラ: golden（`expected-package.mmd`）を先に書きレビュー → 実装。linkStyle の安定性テストを含める
+- [x] 4-5. CLI 統合 E2E テスト（`--package-diagram`、排他エラー、`--show-external`）
+- [x] 4-6. ドッグフーディング: diagoram 自身のパッケージ図を目視確認
+- [x] 4-7. コードレビュー → コミット → **v0.2.0** タグ
 
 ## 受け入れ基準
 - fixture `dependency-loops` で赤太線の相互依存が golden で固定されている
@@ -62,3 +62,10 @@ flowchart TD
 ## スコープ外
 - SCC による間接循環の検出（将来課題）
 - PlantUML でのパッケージ図（Phase 6）
+
+## 実装時の決定事項（Phase 4 完了時に記録）
+- module パス解決はパッケージ図専用の `resolvePackageImportDir`（modulePath があれば厳密一致、無ければ既存の最長サフィックスヒューリスティックにフォールバック）。クラス図側の `resolveTypeRef` は Phase 3 のまま未変更（Build のシグネチャ変更を避けるため。実プロジェクトで誤解決が出たら module パス対応を入れる）
+- subgraph/ノード衝突: 子を持つパッケージは subgraph としてのみ宣言し、エッジは subgraph ID を直接端点にする（Mermaid は subgraph ID をエッジ端点にできる）。外部ノードは `ext_` プレフィックスで衝突回避
+- 相互依存エッジは辞書順に正規化した 1 本の `<-->` に集約（From/To の向きが実行ごとに揺れない）。External エッジは Mutual になり得ない
+- `PackageGraph.HasRootPackage`: ルートディレクトリ自体がパッケージの場合の描画判断用
+- 全出力を mmdc（実 Mermaid CLI）で SVG レンダリングし構文検証済み（テストには組み込まない。go test は Node 非依存を維持）

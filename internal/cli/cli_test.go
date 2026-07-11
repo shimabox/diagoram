@@ -55,6 +55,18 @@ func TestRun(t *testing.T) {
 			wantCode:      0,
 			wantStdoutHas: "diagoram version",
 		},
+		{
+			name:          "-h mentions --package-diagram",
+			args:          []string{"-h"},
+			wantCode:      0,
+			wantStdoutHas: "--package-diagram",
+		},
+		{
+			name:          "-h mentions --show-external",
+			args:          []string{"-h"},
+			wantCode:      0,
+			wantStdoutHas: "--show-external",
+		},
 	}
 
 	for _, tt := range tests {
@@ -133,6 +145,74 @@ func TestRunE2E_EdgeCasesReportsWarning(t *testing.T) {
 	}
 
 	testutil.Golden(t, fixturesDir+"/edge-cases/expected-class.mmd", stdout.String())
+}
+
+// TestRunE2E_PackageDiagram runs the full CLI pipeline
+// (--package-diagram -> gocode.Parse -> diagram.ReadModulePath ->
+// diagram.BuildPackageGraph -> mermaid.RenderPackageGraph -> stdout)
+// against the "dependency-loops" fixture and compares stdout against
+// the same expected-package*.mmd golden files the mermaid package's
+// own tests use.
+func TestRunE2E_PackageDiagram(t *testing.T) {
+	dir := fixturesDir + "/dependency-loops"
+
+	t.Run("default hides external packages", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+
+		code := Run([]string{"--package-diagram", dir}, &stdout, &stderr)
+
+		if code != 0 {
+			t.Fatalf("Run exit code = %d, want 0 (stderr=%q)", code, stderr.String())
+		}
+		if stderr.Len() != 0 {
+			t.Errorf("stderr = %q, want empty", stderr.String())
+		}
+
+		testutil.Golden(t, dir+"/expected-package.mmd", stdout.String())
+	})
+
+	t.Run("--show-external includes fmt", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+
+		code := Run([]string{"--package-diagram", "--show-external", dir}, &stdout, &stderr)
+
+		if code != 0 {
+			t.Fatalf("Run exit code = %d, want 0 (stderr=%q)", code, stderr.String())
+		}
+
+		testutil.Golden(t, dir+"/expected-package-external.mmd", stdout.String())
+	})
+}
+
+// TestRunE2E_ClassAndPackageDiagramMutuallyExclusive makes sure
+// --class-diagram and --package-diagram together fail with a helpful
+// error rather than silently picking one.
+func TestRunE2E_ClassAndPackageDiagramMutuallyExclusive(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"--class-diagram", "--package-diagram", fixturesDir + "/basic"}, &stdout, &stderr)
+
+	if code == 0 {
+		t.Fatalf("Run exit code = 0, want non-zero (stdout=%q)", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "--class-diagram") || !strings.Contains(stderr.String(), "--package-diagram") {
+		t.Errorf("stderr = %q, want it to mention both --class-diagram and --package-diagram", stderr.String())
+	}
+}
+
+// TestRunE2E_ShowExternalWithoutPackageDiagram makes sure
+// --show-external is accepted (not an "unknown flag" error) even when
+// --package-diagram isn't passed, since it only affects package
+// diagrams and diagoram should not force users to know that ordering.
+func TestRunE2E_ShowExternalWithoutPackageDiagram(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"--show-external", fixturesDir + "/basic"}, &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("Run exit code = %d, want 0 (stderr=%q)", code, stderr.String())
+	}
+	testutil.Golden(t, fixturesDir+"/basic/expected-class.mmd", stdout.String())
 }
 
 // TestRunE2E_IncludeExclude exercises --include/--exclude end to end:

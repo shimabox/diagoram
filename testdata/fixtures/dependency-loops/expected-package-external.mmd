@@ -1,0 +1,13 @@
+flowchart TD
+    alpha["alpha"]
+    beta["beta"]
+    subgraph gamma["gamma"]
+        gamma_sub["sub"]
+    end
+    classDef external fill:#eee,stroke:#bbb,color:#999
+    ext_fmt["fmt"]:::external
+    alpha <--> beta
+    alpha --> ext_fmt
+    alpha --> gamma
+    gamma --> gamma_sub
+    linkStyle 0 stroke:red,stroke-width:4px
