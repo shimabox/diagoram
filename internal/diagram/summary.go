@@ -15,8 +15,8 @@ import (
 // import render.Options without an import cycle. Callers (cli.Run)
 // simply copy the same parsed flag values into both.
 type SummaryOptions struct {
-	// HideUnexported excludes unexported fields/methods from the
-	// fields=/methods= counts (--hide-unexported).
+	// HideUnexported excludes unexported types and excludes unexported
+	// fields/methods from the fields=/methods= counts (--hide-unexported).
 	HideUnexported bool
 	// DisableFields omits the fields=N count entirely (--disable-fields).
 	DisableFields bool
@@ -56,6 +56,9 @@ type entrySummaryMeta struct {
 // and — for interfaces only, unless opt.DisableImplements — the sorted
 // list of structs that implement it (prefixed "← implements: ").
 func Summary(d *Diagram, opt SummaryOptions) string {
+	if opt.HideUnexported {
+		d = FilterUnexported(d)
+	}
 	metas := map[string]entrySummaryMeta{}
 	collectSummaryMeta(d.Root, metas)
 

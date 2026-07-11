@@ -1,6 +1,29 @@
 package diagram
 
-import "github.com/shimabox/diagoram/internal/gocode"
+import (
+	"go/ast"
+
+	"github.com/shimabox/diagoram/internal/gocode"
+)
+
+// FilterUnexported returns a diagram containing only exported types and edges
+// whose endpoints both remain visible.
+func FilterUnexported(d *Diagram) *Diagram {
+	keep := map[string]bool{}
+	var walk func(*PackageNode)
+	walk = func(node *PackageNode) {
+		for _, entry := range node.Entries {
+			if ast.IsExported(entry.Name) {
+				keep[entry.ID] = true
+			}
+		}
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	walk(d.Root)
+	return rebuildFiltered(d, keep)
+}
 
 // ExportedFields returns the subset of fields whose Exported is true,
 // preserving order. It backs every consumer's --hide-unexported

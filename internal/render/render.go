@@ -10,9 +10,8 @@ import "github.com/shimabox/diagoram/internal/diagram"
 // formats; fields that only apply to some formats are documented as
 // such.
 type Options struct {
-	// HideUnexported drops unexported fields and methods from every
-	// rendered Entry (--hide-unexported). It does not hide an Entry
-	// itself, even one with an unexported name.
+	// HideUnexported drops unexported types, fields, and methods from the
+	// rendered diagram (--hide-unexported).
 	HideUnexported bool
 	// DisableFields omits every Entry's fields from the rendered class
 	// body (--disable-fields).

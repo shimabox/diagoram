@@ -54,6 +54,16 @@ func TestSummary_DisplayOptions(t *testing.T) {
 		}
 	})
 
+	t.Run("hide-unexported drops unexported types", func(t *testing.T) {
+		named := Build(mustParse(t, fixturesDir+"/named-types"))
+		got := Summary(named, SummaryOptions{HideUnexported: true})
+		for _, unwanted := range []string{"hidden", "secret"} {
+			if strings.Contains(got, unwanted) {
+				t.Errorf("Summary(HideUnexported) = %q, want no %q", got, unwanted)
+			}
+		}
+	})
+
 	t.Run("disable-fields omits the fields= segment", func(t *testing.T) {
 		got := Summary(basic, SummaryOptions{DisableFields: true})
 		if strings.Contains(got, "fields=") {

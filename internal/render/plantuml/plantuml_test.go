@@ -132,6 +132,19 @@ func TestRender_DisplayOptions(t *testing.T) {
 	})
 }
 
+func TestRender_HideUnexportedTypes(t *testing.T) {
+	d := build(t, fixturesDir+"/named-types")
+	got, err := New().Render(d, render.Options{HideUnexported: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, unwanted := range []string{`"hidden"`, `"secret"`, `hidden ..>`, `secret ..>`} {
+		if strings.Contains(got, unwanted) {
+			t.Errorf("Render(HideUnexported) = %q, want no %q", got, unwanted)
+		}
+	}
+}
+
 // TestDocSummary_EscapesQuotesAndBackslashes makes sure a doc comment
 // containing a double quote (as in the "implements" fixture's Labeled
 // interface: `same method name, "Name"`) cannot break out of the

@@ -15,9 +15,17 @@
     class "Transform" as Transform <<func>> {
         type : func(Items) Index
     }
+    class "hidden" as hidden <<slice>> {
+        type : []Item
+    }
+    class "secret" as secret {
+        +Item : Item
+    }
     Index "1" ..> "*" Item
     Items "1" ..> "*" Item
     Items ..|> Sizer
     Transform ..> Index
     Transform ..> Items
+    hidden "1" ..> "*" Item
+    secret ..> Item
 @enduml

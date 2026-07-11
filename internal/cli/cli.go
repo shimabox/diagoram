@@ -45,7 +45,7 @@ Options:
                       library, other modules) as light-colored nodes.
                       Only affects --package-diagram; ignored
                       otherwise.
-  --hide-unexported   Hide unexported fields and methods. Only affects
+	  --hide-unexported   Hide unexported types, fields, and methods. Only affects
                       --class-diagram (and --summary); ignored
                       otherwise.
   --disable-fields    Do not draw fields in the class diagram. Only
@@ -162,7 +162,7 @@ func parseArgs(args []string, stderr io.Writer) (*Options, error) {
 	fs.BoolVar(&opts.PackageDiagram, "package-diagram", false, "output a package dependency diagram")
 	fs.StringVar(&opts.Format, "format", "mermaid", `output format: "mermaid" or "plantuml"`)
 	fs.BoolVar(&opts.ShowExternal, "show-external", false, "also draw packages outside <dir> in the package diagram")
-	fs.BoolVar(&opts.HideUnexported, "hide-unexported", false, "hide unexported fields and methods")
+	fs.BoolVar(&opts.HideUnexported, "hide-unexported", false, "hide unexported types, fields, and methods")
 	fs.BoolVar(&opts.DisableFields, "disable-fields", false, "do not draw fields in the class diagram")
 	fs.BoolVar(&opts.DisableMethods, "disable-methods", false, "do not draw methods in the class diagram")
 	fs.BoolVar(&opts.DisableImplements, "disable-implements", false, "do not draw heuristically detected interface implementations")

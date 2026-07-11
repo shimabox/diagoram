@@ -19,8 +19,17 @@ classDiagram
         <<func>>
         type func
     }
+    class hidden["hidden"] {
+        <<slice>>
+        type Item[]
+    }
+    class secret["secret"] {
+        +Item Item
+    }
     Index ..> Item : *
     Items ..> Item : *
     Items ..|> Sizer
     Transform ..> Index
     Transform ..> Items
+    hidden ..> Item : *
+    secret ..> Item

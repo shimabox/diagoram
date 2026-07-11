@@ -45,6 +45,9 @@ func New() *Renderer {
 // non-nil error; it is declared to return one to satisfy
 // render.Renderer and to leave room for future validation.
 func (r *Renderer) Render(d *diagram.Diagram, opt render.Options) (string, error) {
+	if opt.HideUnexported {
+		d = diagram.FilterUnexported(d)
+	}
 	lines := []string{"@startuml class-diagram"}
 	lines = append(lines, renderTree(d.Root, 1, opt)...)
 	lines = append(lines, renderEdges(d.Edges, opt)...)

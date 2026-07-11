@@ -17,3 +17,9 @@ func (items Items) Len() int {
 type Index map[string]*Item
 
 type Transform func(Items) Index
+
+type hidden []Item
+
+type secret struct {
+	Item Item
+}

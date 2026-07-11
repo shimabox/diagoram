@@ -131,3 +131,16 @@ func TestRender_DisplayOptions(t *testing.T) {
 		}
 	})
 }
+
+func TestRender_HideUnexportedTypes(t *testing.T) {
+	d := build(t, fixturesDir+"/named-types")
+	got, err := New().Render(d, render.Options{HideUnexported: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, unwanted := range []string{`class hidden`, `class secret`, `hidden ..>`, `secret ..>`} {
+		if strings.Contains(got, unwanted) {
+			t.Errorf("Render(HideUnexported) = %q, want no %q", got, unwanted)
+		}
+	}
+}
