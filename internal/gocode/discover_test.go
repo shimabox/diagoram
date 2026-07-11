@@ -1,0 +1,145 @@
+package gocode
+
+import (
+	"os"
+	"path/filepath"
+	"reflect"
+	"testing"
+)
+
+// writeFiles creates each key in files (a path relative to dir) with
+// its value as content, creating parent directories as needed.
+func writeFiles(t *testing.T, dir string, files map[string]string) {
+	t.Helper()
+	for rel, content := range files {
+		full := filepath.Join(dir, rel)
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatalf("MkdirAll(%s): %v", filepath.Dir(full), err)
+		}
+		if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+			t.Fatalf("WriteFile(%s): %v", full, err)
+		}
+	}
+}
+
+func TestDiscoverDirsDefaultIncludeExclude(t *testing.T) {
+	dir := t.TempDir()
+	writeFiles(t, dir, map[string]string{
+		"a.go":      "package root\n",
+		"a_test.go": "package root\n",
+		"README.md": "not go\n",
+		"pkg/b.go":  "package pkg\n",
+	})
+
+	got, err := discoverDirs(dir, ParseOptions{})
+	if err != nil {
+		t.Fatalf("discoverDirs: %v", err)
+	}
+
+	want := []dirFiles{
+		{Dir: ".", Files: []string{"a.go"}},
+		{Dir: "pkg", Files: []string{"b.go"}},
+	}
+	assertDirFiles(t, got, want)
+}
+
+func TestDiscoverDirsSkipsVendorTestdataAndHidden(t *testing.T) {
+	dir := t.TempDir()
+	writeFiles(t, dir, map[string]string{
+		"a.go":              "package root\n",
+		"vendor/v.go":       "package vendor\n",
+		"testdata/t.go":     "package testdata\n",
+		".hidden/h.go":      "package hidden\n",
+		"keep/vendorish.go": "package keep\n", // not literally named "vendor", must be kept
+		"keep/testdatum.go": "package keep\n", // not literally named "testdata", must be kept
+	})
+
+	got, err := discoverDirs(dir, ParseOptions{})
+	if err != nil {
+		t.Fatalf("discoverDirs: %v", err)
+	}
+
+	want := []dirFiles{
+		{Dir: ".", Files: []string{"a.go"}},
+		{Dir: "keep", Files: []string{"testdatum.go", "vendorish.go"}},
+	}
+	assertDirFiles(t, got, want)
+}
+
+func TestDiscoverDirsCustomIncludeExclude(t *testing.T) {
+	dir := t.TempDir()
+	writeFiles(t, dir, map[string]string{
+		"a.go":      "package root\n",
+		"a_gen.go":  "package root\n",
+		"a_test.go": "package root\n",
+	})
+
+	got, err := discoverDirs(dir, ParseOptions{
+		Includes: []string{"*.go"},
+		Excludes: []string{"*_gen.go"},
+	})
+	if err != nil {
+		t.Fatalf("discoverDirs: %v", err)
+	}
+
+	// A custom Excludes list is used as-is: *_test.go is only excluded
+	// by default, so specifying Excludes without it means test files
+	// are included.
+	want := []dirFiles{
+		{Dir: ".", Files: []string{"a.go", "a_test.go"}},
+	}
+	assertDirFiles(t, got, want)
+}
+
+func TestDiscoverDirsIncludeNarrowsFiles(t *testing.T) {
+	dir := t.TempDir()
+	writeFiles(t, dir, map[string]string{
+		"a.go":      "package root\n",
+		"b_impl.go": "package root\n",
+	})
+
+	got, err := discoverDirs(dir, ParseOptions{
+		Includes: []string{"*_impl.go"},
+	})
+	if err != nil {
+		t.Fatalf("discoverDirs: %v", err)
+	}
+
+	want := []dirFiles{
+		{Dir: ".", Files: []string{"b_impl.go"}},
+	}
+	assertDirFiles(t, got, want)
+}
+
+func TestDiscoverDirsSkipsEmptyDirs(t *testing.T) {
+	dir := t.TempDir()
+	writeFiles(t, dir, map[string]string{
+		"a.go":         "package root\n",
+		"empty/README": "no go files here\n",
+	})
+
+	got, err := discoverDirs(dir, ParseOptions{})
+	if err != nil {
+		t.Fatalf("discoverDirs: %v", err)
+	}
+
+	want := []dirFiles{
+		{Dir: ".", Files: []string{"a.go"}},
+	}
+	assertDirFiles(t, got, want)
+}
+
+func assertDirFiles(t *testing.T, got []dirFiles, want []dirFiles) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("discoverDirs returned %d dirs, want %d\ngot:  %+v\nwant: %+v", len(got), len(want), got, want)
+	}
+	for i := range want {
+		if got[i].Dir != want[i].Dir {
+			t.Errorf("dir[%d].Dir = %q, want %q", i, got[i].Dir, want[i].Dir)
+		}
+		if !reflect.DeepEqual(got[i].Files, want[i].Files) {
+			t.Errorf("dir[%d].Files = %v, want %v", i, got[i].Files, want[i].Files)
+		}
+	}
+}

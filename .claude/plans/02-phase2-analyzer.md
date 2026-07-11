@@ -11,7 +11,8 @@
 
 ```go
 // 解析のエントリポイント
-func Parse(rootDir string, opt ParseOptions) ([]*Package, error)
+func Parse(rootDir string, opt ParseOptions) ([]*Package, []Warning, error)
+// Warning = 構文エラー等でスキップしたファイルの報告。error は rootDir 不読等の致命的問題のみ
 
 type ParseOptions struct {
     Includes []string // glob。デフォルト ["*.go"]
@@ -82,30 +83,30 @@ type TypeRef struct {
 ## タスク（TDD 順）
 
 ### 2-1. fixture 整備
-- [ ] `testdata/fixtures/basic/`: 単一パッケージ。Product/Name/Price のミニドメイン（php-class-diagram に倣う）。struct・フィールド・メソッド・exported/unexported を網羅
-- [ ] `testdata/fixtures/multi-package/`: `product/`, `product/attribute/`, `config/` のようなサブパッケージ構成。パッケージ跨ぎの型参照（`attribute.Color` 等）を含む
-- [ ] `testdata/fixtures/interfaces/`: interface 定義、埋め込み interface、struct の埋め込み、それを満たす struct
-- [ ] `testdata/fixtures/edge-cases/`: ポインタ・スライス・マップ・ジェネリクス・匿名struct・構文エラーファイル（1 個混ぜる）
+- [x] `testdata/fixtures/basic/`: 単一パッケージ。Product/Name/Price のミニドメイン（php-class-diagram に倣う）。struct・フィールド・メソッド・exported/unexported を網羅
+- [x] `testdata/fixtures/multi-package/`: `product/`, `product/attribute/`, `config/` のようなサブパッケージ構成。パッケージ跨ぎの型参照（`attribute.Color` 等）を含む
+- [x] `testdata/fixtures/interfaces/`: interface 定義、埋め込み interface、struct の埋め込み、それを満たす struct
+- [x] `testdata/fixtures/edge-cases/`: ポインタ・スライス・マップ・ジェネリクス・匿名struct・構文エラーファイル（1 個混ぜる）
 
 ### 2-2. ファイル探索（TDD）
-- [ ] テスト先行 → 実装: include/exclude glob、`vendor/` 等のスキップ、`*_test.go` デフォルト除外
+- [x] テスト先行 → 実装: include/exclude glob、`vendor/` 等のスキップ、`*_test.go` デフォルト除外
 
 ### 2-3. 宣言抽出（TDD）
-- [ ] テスト先行 → 実装: fixture `basic` を Parse し、Struct/Field/Method/Exported が期待通りか table test で検証
-- [ ] interface・埋め込み（fixture `interfaces`）
-- [ ] レシーバによるメソッド紐付け
+- [x] テスト先行 → 実装: fixture `basic` を Parse し、Struct/Field/Method/Exported が期待通りか table test で検証
+- [x] interface・埋め込み（fixture `interfaces`）
+- [x] レシーバによるメソッド紐付け
 
 ### 2-4. 型参照と import（TDD）
-- [ ] TypeRef の分解（`*T`, `[]T`, `map[K]V`, `pkg.T` の組み合わせ）を細かい table test で検証
-- [ ] Import の収集（alias 対応）
-- [ ] fixture `multi-package` でパッケージ修飾つき参照が取れること
+- [x] TypeRef の分解（`*T`, `[]T`, `map[K]V`, `pkg.T` の組み合わせ）を細かい table test で検証
+- [x] Import の収集（alias 対応）
+- [x] fixture `multi-package` でパッケージ修飾つき参照が取れること
 
 ### 2-5. 堅牢性（TDD）
-- [ ] 構文エラーファイルをスキップして続行し、stderr 向けの警告リストが返ること（fixture `edge-cases`）
+- [x] 構文エラーファイルをスキップして続行し、stderr 向けの警告リストが返ること（fixture `edge-cases`）
 
 ### 2-6. フェーズ完了処理
-- [ ] オーケストレーターがコードレビュー（モデルの過不足、依存ゼロ、doc コメント）
-- [ ] コミット
+- [x] オーケストレーターがコードレビュー（モデルの過不足、依存ゼロ、doc コメント）
+- [x] コミット
 
 ## 受け入れ基準
 - 4 つの fixture すべてで Parse 結果がテストで固定されている
@@ -116,3 +117,10 @@ type TypeRef struct {
 - 図・IR への変換（Phase 3）
 - interface 実装の検出（Phase 5。ここでは材料=メソッドセットを揃えるだけ）
 - 定数・関数（トップレベル func）の抽出
+
+## 実装時の決定事項（Phase 2 完了時に記録）
+- `Parse` は `([]*Package, []Warning, error)` を返す。構文エラーファイルは Warning に積んで続行、error は致命的問題のみ
+- `ParseOptions.Excludes` をユーザーが指定した場合、デフォルトの `*_test.go` 除外は**置き換え**られる（マージしない。Includes と同じセマンティクス）
+- `map[K]V` はキー K を分解しない（値 V のみ主参照）。可変長引数 `...T` はスライス扱い
+- 匿名struct/関数型/チャネル等は Name="" とし String に原文表記のみ保持
+- 注意: fixture の `edge-cases/broken.go`（意図的な構文エラー）により `gofmt -l .` は stderr にノイズを出す（stdout は空なので CI は通る）

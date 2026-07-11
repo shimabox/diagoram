@@ -82,7 +82,7 @@ diagoram [options] <dir>
 | フェーズ | 内容 | 完了時の姿 | 状態 |
 |---|---|---|---|
 | [1](01-phase1-foundation.md) | プロジェクト基盤 | CLI 骨格が動き、golden テスト基盤と CI がある | **完了** |
-| [2](02-phase2-analyzer.md) | 解析器 gocode | fixture の Go コードを言語モデルに変換できる | 未着手 |
+| [2](02-phase2-analyzer.md) | 解析器 gocode | fixture の Go コードを言語モデルに変換できる | **完了** |
 | [3](03-phase3-mermaid-class-diagram.md) | IR + Mermaid クラス図 | **E2E で動く MVP**。`diagoram <dir>` がクラス図を出す | 未着手 |
 | [4](04-phase4-package-diagram.md) | パッケージ依存図 | 循環依存の赤線警告つきパッケージ図が出る | 未着手 |
 | [5](05-phase5-filters-and-implements.md) | フィルタ + interface 実装検出 + summary | 大規模プロジェクトで実用になる | 未着手 |
