@@ -123,4 +123,4 @@ type TypeRef struct {
 - `ParseOptions.Excludes` をユーザーが指定した場合、デフォルトの `*_test.go` 除外は**置き換え**られる（マージしない。Includes と同じセマンティクス）
 - `map[K]V` はキー K を分解しない（値 V のみ主参照）。可変長引数 `...T` はスライス扱い
 - 匿名struct/関数型/チャネル等は Name="" とし String に原文表記のみ保持
-- 注意: fixture の `edge-cases/broken.go`（意図的な構文エラー）により `gofmt -l .` は stderr にノイズを出す（stdout は空なので CI は通る）
+- 注意: fixture の `edge-cases/broken.go`（意図的な構文エラー）により `gofmt -l .` は exit 2 になる（GitHub Actions は bash -e なのでステップが落ちる）。CI の gofmt チェックは `gofmt -l cmd internal` と実ソースに限定している

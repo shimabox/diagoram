@@ -19,8 +19,11 @@ jobs:
         run: go vet ./...
 
       - name: gofmt
+        # Restricted to real source directories: testdata contains an
+        # intentionally-invalid fixture (edge-cases/broken.go) that makes
+        # gofmt exit non-zero, which would abort this step under bash -e.
         run: |
-          fmt_out="$(gofmt -l .)"
+          fmt_out="$(gofmt -l cmd internal)"
           if [ -n "$fmt_out" ]; then
             echo "The following files are not gofmt'ed:"
             echo "$fmt_out"
