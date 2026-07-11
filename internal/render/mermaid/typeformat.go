@@ -57,6 +57,9 @@ func formatExpr(expr ast.Expr) string {
 	case *ast.StarExpr:
 		return "*" + formatExpr(e.X)
 	case *ast.ArrayType:
+		if e.Len != nil {
+			return "Array~" + formatExpr(e.Len) + "," + formatExpr(e.Elt) + "~"
+		}
 		return formatExpr(e.Elt) + "[]"
 	case *ast.Ellipsis:
 		return formatExpr(e.Elt) + "[]"
@@ -74,6 +77,8 @@ func formatExpr(expr ast.Expr) string {
 		return formatExpr(e.X) + "." + e.Sel.Name
 	case *ast.Ident:
 		return e.Name
+	case *ast.BasicLit:
+		return e.Value
 	case *ast.FuncType:
 		return "func"
 	case *ast.StructType:

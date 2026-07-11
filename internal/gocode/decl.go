@@ -38,20 +38,28 @@ func collectDecls(file *ast.File) fileDecls {
 					doc = docFirstLine(d.Doc)
 				}
 
+				if ts.Assign.IsValid() {
+					fd.NamedTypes = append(fd.NamedTypes, namedTypeFromSpec(ts.Name.Name, doc, NamedAlias, ts.Type))
+					continue
+				}
+
 				switch t := ts.Type.(type) {
 				case *ast.StructType:
 					fd.Structs = append(fd.Structs, structFromSpec(ts.Name.Name, doc, t))
 				case *ast.InterfaceType:
 					fd.Interfaces = append(fd.Interfaces, interfaceFromSpec(ts.Name.Name, doc, t))
 				case *ast.ArrayType:
-					fd.NamedTypes = append(fd.NamedTypes, &NamedType{Name: ts.Name.Name, Doc: doc, Kind: NamedSlice, Underlying: typeRefFromExpr(t)})
+					kind := NamedArray
+					if t.Len == nil {
+						kind = NamedSlice
+					}
+					fd.NamedTypes = append(fd.NamedTypes, namedTypeFromSpec(ts.Name.Name, doc, kind, t))
 				case *ast.MapType:
-					fd.NamedTypes = append(fd.NamedTypes, &NamedType{Name: ts.Name.Name, Doc: doc, Kind: NamedMap, Underlying: typeRefFromExpr(t)})
+					fd.NamedTypes = append(fd.NamedTypes, namedTypeFromSpec(ts.Name.Name, doc, NamedMap, t))
 				case *ast.FuncType:
-					fd.NamedTypes = append(fd.NamedTypes, &NamedType{
-						Name: ts.Name.Name, Doc: doc, Kind: NamedFunc, Underlying: typeRefFromExpr(t),
-						Params: typeRefsFromFieldList(t.Params), Results: typeRefsFromFieldList(t.Results),
-					})
+					fd.NamedTypes = append(fd.NamedTypes, namedTypeFromSpec(ts.Name.Name, doc, NamedFunc, t))
+				default:
+					fd.NamedTypes = append(fd.NamedTypes, namedTypeFromSpec(ts.Name.Name, doc, NamedScalar, t))
 				}
 			}
 		case *ast.FuncDecl:
@@ -67,6 +75,15 @@ func collectDecls(file *ast.File) fileDecls {
 	}
 
 	return fd
+}
+
+func namedTypeFromSpec(name, doc string, kind NamedTypeKind, expr ast.Expr) *NamedType {
+	typ := &NamedType{Name: name, Doc: doc, Kind: kind, Underlying: typeRefFromExpr(expr)}
+	if fn, ok := expr.(*ast.FuncType); ok {
+		typ.Params = typeRefsFromFieldList(fn.Params)
+		typ.Results = typeRefsFromFieldList(fn.Results)
+	}
+	return typ
 }
 
 // receiverTypeName extracts the receiver's bare type name from a

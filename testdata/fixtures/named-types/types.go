@@ -18,6 +18,12 @@ type Index map[string]*Item
 
 type Transform func(Items) Index
 
+type Code int
+
+type Vector [4]Item
+
+type ItemAlias = Item
+
 type hidden []Item
 
 type secret struct {

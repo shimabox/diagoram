@@ -107,12 +107,18 @@ func NamedTypeLabel(typ *gocode.NamedType) string {
 		return "type"
 	}
 	switch typ.Kind {
+	case gocode.NamedScalar:
+		return "type"
+	case gocode.NamedArray:
+		return "array"
 	case gocode.NamedSlice:
 		return "slice"
 	case gocode.NamedMap:
 		return "map"
 	case gocode.NamedFunc:
 		return "func"
+	case gocode.NamedAlias:
+		return "alias"
 	default:
 		return "type"
 	}

@@ -1,10 +1,18 @@
 classDiagram
+    class Code["Code"] {
+        <<type>>
+        type int
+    }
     class Index["Index"] {
         <<map>>
         type Map~string,*Item~
     }
     class Item["Item"] {
         +Name string
+    }
+    class ItemAlias["ItemAlias"] {
+        <<alias>>
+        type Item
     }
     class Items["Items"] {
         <<slice>>
@@ -19,6 +27,10 @@ classDiagram
         <<func>>
         type func
     }
+    class Vector["Vector"] {
+        <<array>>
+        type Array~4,Item~
+    }
     class hidden["hidden"] {
         <<slice>>
         type Item[]
@@ -27,9 +39,11 @@ classDiagram
         +Item Item
     }
     Index ..> Item : *
+    ItemAlias ..> Item
     Items ..> Item : *
     Items ..|> Sizer
     Transform ..> Index
     Transform ..> Items
+    Vector ..> Item : *
     hidden ..> Item : *
     secret ..> Item

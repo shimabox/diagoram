@@ -63,7 +63,10 @@ func TestParseNamedTypes(t *testing.T) {
 		t.Fatalf("packages = %+v, warnings = %+v", pkgs, warnings)
 	}
 	pkg := pkgs[0]
-	for name, kind := range map[string]NamedTypeKind{"Items": NamedSlice, "Index": NamedMap, "Transform": NamedFunc} {
+	for name, kind := range map[string]NamedTypeKind{
+		"Code": NamedScalar, "Vector": NamedArray, "Items": NamedSlice,
+		"Index": NamedMap, "Transform": NamedFunc, "ItemAlias": NamedAlias,
+	} {
 		typ := findNamedType(pkg, name)
 		if typ == nil || typ.Kind != kind {
 			t.Errorf("named type %s = %+v, want kind %v", name, typ, kind)

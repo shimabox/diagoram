@@ -41,7 +41,7 @@ type Package struct {
 	// Interfaces holds every `type X interface{...}` declaration,
 	// sorted the same way as Structs.
 	Interfaces []*Interface
-	// NamedTypes holds named slice, map, and function types.
+	// NamedTypes holds supported named types other than structs and interfaces.
 	NamedTypes []*NamedType
 }
 
@@ -49,12 +49,15 @@ type Package struct {
 type NamedTypeKind int
 
 const (
-	NamedSlice NamedTypeKind = iota
+	NamedScalar NamedTypeKind = iota
+	NamedArray
+	NamedSlice
 	NamedMap
 	NamedFunc
+	NamedAlias
 )
 
-// NamedType is a declared slice, map, or function type.
+// NamedType is a declared non-struct, non-interface type or type alias.
 type NamedType struct {
 	Name       string
 	Doc        string

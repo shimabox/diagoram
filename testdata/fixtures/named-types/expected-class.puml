@@ -1,9 +1,15 @@
 @startuml class-diagram
+    class "Code" as Code <<type>> {
+        type : int
+    }
     class "Index" as Index <<map>> {
         type : map[string]*Item
     }
     class "Item" as Item {
         +Name : string
+    }
+    class "ItemAlias" as ItemAlias <<alias>> {
+        type : Item
     }
     class "Items" as Items <<slice>> {
         type : []Item
@@ -15,6 +21,9 @@
     class "Transform" as Transform <<func>> {
         type : func(Items) Index
     }
+    class "Vector" as Vector <<array>> {
+        type : [4]Item
+    }
     class "hidden" as hidden <<slice>> {
         type : []Item
     }
@@ -22,10 +31,12 @@
         +Item : Item
     }
     Index "1" ..> "*" Item
+    ItemAlias ..> Item
     Items "1" ..> "*" Item
     Items ..|> Sizer
     Transform ..> Index
     Transform ..> Items
+    Vector "1" ..> "*" Item
     hidden "1" ..> "*" Item
     secret ..> Item
 @enduml
