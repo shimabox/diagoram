@@ -15,7 +15,7 @@ import (
 // "← implements: ..." line on an interface with more than one
 // implementer.
 func TestSummary_GoldenFixtures(t *testing.T) {
-	cases := []string{"basic", "multi-package", "implements"}
+	cases := []string{"basic", "multi-package", "implements", "named-types"}
 
 	for _, name := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -32,7 +32,7 @@ func TestSummary_GoldenFixtures(t *testing.T) {
 // header line, with the right zero counts and no dangling blank block.
 func TestSummary_Empty(t *testing.T) {
 	got := Summary(Build(nil), SummaryOptions{})
-	want := "diagoram: 0 packages, 0 structs, 0 interfaces\n"
+	want := "diagoram: 0 packages, 0 structs, 0 interfaces, 0 named types\n"
 	if got != want {
 		t.Errorf("Summary(empty) = %q, want %q", got, want)
 	}

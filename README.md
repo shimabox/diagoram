@@ -51,7 +51,7 @@ classDiagram
 
 ### クラス図
 
-struct と interface、その型同士の関係を描画します。
+struct、interface、名前付きのslice・map・function型と、その型同士の関係を描画します。
 
 | 記法 | 意味 |
 |---|---|

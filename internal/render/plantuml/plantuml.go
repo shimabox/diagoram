@@ -123,13 +123,19 @@ func renderClass(e *diagram.Entry, depth int, opt render.Options) []string {
 		keyword = "interface"
 	}
 	header := fmt.Sprintf(`%s%s "%s%s" as %s`, indent, keyword, e.Name, docSummary(e.Doc), e.ID)
+	if e.Kind == diagram.KindNamedType {
+		header += " <<" + diagram.NamedTypeLabel(e.NamedType) + ">>"
+	}
 
 	fields, methods := visibleMembers(e, opt)
-	if len(fields) == 0 && len(methods) == 0 {
+	if e.Kind != diagram.KindNamedType && len(fields) == 0 && len(methods) == 0 {
 		return []string{header}
 	}
 
 	lines := []string{header + " {"}
+	if e.Kind == diagram.KindNamedType {
+		lines = append(lines, memberIndent+"type : "+safeType(e.NamedType.Underlying.String))
+	}
 	for _, f := range fields {
 		lines = append(lines, memberIndent+fieldLine(f))
 	}

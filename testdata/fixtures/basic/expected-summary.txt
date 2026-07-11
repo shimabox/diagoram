@@ -1,4 +1,4 @@
-diagoram: 1 packages, 1 structs, 0 interfaces
+diagoram: 1 packages, 1 structs, 0 interfaces, 0 named types
 
 .
   Product (struct) fields=3 methods=3

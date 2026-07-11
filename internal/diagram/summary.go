@@ -82,15 +82,18 @@ func Summary(d *Diagram, opt SummaryOptions) string {
 		implementedBy[k] = names
 	}
 
-	var structCount, ifaceCount, pkgCount int
+	var structCount, ifaceCount, namedTypeCount, pkgCount int
 	var blocks []string
 	var walk func(node *PackageNode)
 	walk = func(node *PackageNode) {
 		for _, e := range node.Entries {
-			if e.Kind == KindStruct {
+			switch e.Kind {
+			case KindStruct:
 				structCount++
-			} else {
+			case KindInterface:
 				ifaceCount++
+			case KindNamedType:
+				namedTypeCount++
 			}
 		}
 		if len(node.Entries) > 0 {
@@ -103,7 +106,7 @@ func Summary(d *Diagram, opt SummaryOptions) string {
 	}
 	walk(d.Root)
 
-	header := fmt.Sprintf("diagoram: %d packages, %d structs, %d interfaces\n", pkgCount, structCount, ifaceCount)
+	header := fmt.Sprintf("diagoram: %d packages, %d structs, %d interfaces, %d named types\n", pkgCount, structCount, ifaceCount, namedTypeCount)
 	if len(blocks) == 0 {
 		return header
 	}
@@ -148,6 +151,8 @@ func renderSummaryBlock(node *PackageNode, metas map[string]entrySummaryMeta, ou
 		kindLabel := "(struct)"
 		if e.Kind == KindInterface {
 			kindLabel = "(interface)"
+		} else if e.Kind == KindNamedType {
+			kindLabel = "(" + NamedTypeLabel(e.NamedType) + ")"
 		}
 		fmt.Fprintf(tw, "  %s\t%s\t%s\n", e.Name, kindLabel, summaryDetails(e, node.Path, metas, outgoing[e.ID], implementedBy[e.ID], opt))
 	}
@@ -180,7 +185,7 @@ func summaryDetails(e *Entry, ownerDir string, metas map[string]entrySummaryMeta
 		if len(counts) > 0 {
 			parts = append(parts, strings.Join(counts, " "))
 		}
-	} else if !opt.DisableMethods {
+	} else if (e.Kind == KindInterface || e.Kind == KindNamedType) && !opt.DisableMethods {
 		methods := e.Methods
 		if opt.HideUnexported {
 			methods = ExportedMethods(methods)

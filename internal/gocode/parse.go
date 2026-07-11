@@ -12,7 +12,7 @@ import (
 
 // Parse analyzes every Go package under rootDir and returns the
 // resulting language model, in deterministic order: packages sorted
-// by Dir, and each package's structs/interfaces/imports sorted (by
+// by Dir, and each package's declarations/imports sorted (by
 // source order, or by Path/Alias for Imports).
 //
 // Directories named "vendor" or "testdata", and any directory whose
@@ -87,6 +87,7 @@ func parseDir(d dirFiles) (*Package, []Warning) {
 		fd := collectDecls(file)
 		pkg.Structs = append(pkg.Structs, fd.Structs...)
 		pkg.Interfaces = append(pkg.Interfaces, fd.Interfaces...)
+		pkg.NamedTypes = append(pkg.NamedTypes, fd.NamedTypes...)
 		for recv, methods := range fd.Methods {
 			methodsByReceiver[recv] = append(methodsByReceiver[recv], methods...)
 		}
@@ -106,6 +107,9 @@ func parseDir(d dirFiles) (*Package, []Warning) {
 
 	for _, s := range pkg.Structs {
 		s.Methods = methodsByReceiver[s.Name]
+	}
+	for _, typ := range pkg.NamedTypes {
+		typ.Methods = methodsByReceiver[typ.Name]
 	}
 
 	pkg.Imports = make([]Import, 0, len(importSet))

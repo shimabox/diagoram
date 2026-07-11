@@ -89,7 +89,7 @@ func renderClass(e *diagram.Entry, depth int, opt render.Options) []string {
 
 	fields, methods := visibleMembers(e, opt)
 
-	hasBody := e.Kind == diagram.KindInterface || len(fields) > 0 || len(methods) > 0
+	hasBody := e.Kind == diagram.KindInterface || e.Kind == diagram.KindNamedType || len(fields) > 0 || len(methods) > 0
 	if !hasBody {
 		return []string{header}
 	}
@@ -97,6 +97,10 @@ func renderClass(e *diagram.Entry, depth int, opt render.Options) []string {
 	lines := []string{header + " {"}
 	if e.Kind == diagram.KindInterface {
 		lines = append(lines, memberIndent+"<<interface>>")
+	}
+	if e.Kind == diagram.KindNamedType {
+		lines = append(lines, memberIndent+"<<"+diagram.NamedTypeLabel(e.NamedType)+">>")
+		lines = append(lines, memberIndent+"type "+formatType(e.NamedType.Underlying.String))
 	}
 	for _, f := range fields {
 		lines = append(lines, memberIndent+fieldLine(f))

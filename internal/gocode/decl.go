@@ -6,17 +6,18 @@ import (
 )
 
 // fileDecls is the intermediate result of scanning a single *.go
-// file's AST: the struct/interface type declarations it contains,
+// file's AST: the supported named type declarations it contains,
 // plus the receiver-bearing methods that must later be matched to
 // their struct by name.
 type fileDecls struct {
 	Structs    []*Struct
 	Interfaces []*Interface
+	NamedTypes []*NamedType
 	Methods    map[string][]Method // receiver type name -> methods
 }
 
 // collectDecls walks file's top-level declarations and extracts
-// struct/interface type specs and receiver methods. Declaration order
+// struct/interface/slice/map/function type specs and receiver methods. Declaration order
 // within the file is preserved.
 func collectDecls(file *ast.File) fileDecls {
 	fd := fileDecls{Methods: map[string][]Method{}}
@@ -42,6 +43,15 @@ func collectDecls(file *ast.File) fileDecls {
 					fd.Structs = append(fd.Structs, structFromSpec(ts.Name.Name, doc, t))
 				case *ast.InterfaceType:
 					fd.Interfaces = append(fd.Interfaces, interfaceFromSpec(ts.Name.Name, doc, t))
+				case *ast.ArrayType:
+					fd.NamedTypes = append(fd.NamedTypes, &NamedType{Name: ts.Name.Name, Doc: doc, Kind: NamedSlice, Underlying: typeRefFromExpr(t)})
+				case *ast.MapType:
+					fd.NamedTypes = append(fd.NamedTypes, &NamedType{Name: ts.Name.Name, Doc: doc, Kind: NamedMap, Underlying: typeRefFromExpr(t)})
+				case *ast.FuncType:
+					fd.NamedTypes = append(fd.NamedTypes, &NamedType{
+						Name: ts.Name.Name, Doc: doc, Kind: NamedFunc, Underlying: typeRefFromExpr(t),
+						Params: typeRefsFromFieldList(t.Params), Results: typeRefsFromFieldList(t.Results),
+					})
 				}
 			}
 		case *ast.FuncDecl:

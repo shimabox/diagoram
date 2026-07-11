@@ -1,0 +1,26 @@
+classDiagram
+    class Index["Index"] {
+        <<map>>
+        type Map~string,*Item~
+    }
+    class Item["Item"] {
+        +Name string
+    }
+    class Items["Items"] {
+        <<slice>>
+        type Item[]
+        +Len() int
+    }
+    class Sizer["Sizer"] {
+        <<interface>>
+        +Len() int
+    }
+    class Transform["Transform"] {
+        <<func>>
+        type func
+    }
+    Index ..> Item : *
+    Items ..> Item : *
+    Items ..|> Sizer
+    Transform ..> Index
+    Transform ..> Items

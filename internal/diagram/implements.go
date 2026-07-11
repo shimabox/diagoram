@@ -7,7 +7,7 @@ import (
 )
 
 // buildImplementationEdges heuristically detects Go's implicit
-// interface satisfaction for every (struct, interface) pair among
+// interface satisfaction for every (concrete named type, interface) pair among
 // pkgs: purely syntactic analysis (no go/types) cannot know for
 // certain that a struct implements an interface, so this is a
 // best-effort approximation. See the package doc below for the exact
@@ -72,6 +72,20 @@ func buildImplementationEdges(pkgs []*gocode.Package, registry map[entryKey]*Ent
 				}
 				ifaceEntry := registry[ifaceKey]
 				edges = append(edges, Edge{From: structEntry.ID, To: ifaceEntry.ID, Kind: Implementation})
+			}
+		}
+		for _, typ := range pkg.NamedTypes {
+			concreteEntry := registry[entryKey{pkg.Dir, typ.Name}]
+			concreteMethods := map[string]gocode.Method{}
+			for _, method := range typ.Methods {
+				concreteMethods[method.Name] = method
+			}
+			for ifaceKey := range ifaceByKey {
+				methods := resolveInterfaceMethods(ifaceKey, ifaceByKey, ifaceMethodsMemo, pkgByDir, dirs, map[entryKey]bool{})
+				if len(methods) == 0 || !implementsAll(concreteMethods, methods) {
+					continue
+				}
+				edges = append(edges, Edge{From: concreteEntry.ID, To: registry[ifaceKey].ID, Kind: Implementation})
 			}
 		}
 	}

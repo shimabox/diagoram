@@ -48,6 +48,36 @@ func findInterface(pkg *Package, name string) *Interface {
 	return nil
 }
 
+func findNamedType(pkg *Package, name string) *NamedType {
+	for _, typ := range pkg.NamedTypes {
+		if typ.Name == name {
+			return typ
+		}
+	}
+	return nil
+}
+
+func TestParseNamedTypes(t *testing.T) {
+	pkgs, warnings := mustParse(t, fixturesDir+"/named-types", ParseOptions{})
+	if len(warnings) != 0 || len(pkgs) != 1 {
+		t.Fatalf("packages = %+v, warnings = %+v", pkgs, warnings)
+	}
+	pkg := pkgs[0]
+	for name, kind := range map[string]NamedTypeKind{"Items": NamedSlice, "Index": NamedMap, "Transform": NamedFunc} {
+		typ := findNamedType(pkg, name)
+		if typ == nil || typ.Kind != kind {
+			t.Errorf("named type %s = %+v, want kind %v", name, typ, kind)
+		}
+	}
+	if got := findNamedType(pkg, "Items"); got == nil || len(got.Methods) != 1 || got.Methods[0].Name != "Len" {
+		t.Errorf("Items methods = %+v, want Len", got)
+	}
+	transform := findNamedType(pkg, "Transform")
+	if transform == nil || len(transform.Params) != 1 || transform.Params[0].Name != "Items" || len(transform.Results) != 1 || transform.Results[0].Name != "Index" {
+		t.Errorf("Transform signature = %+v, want func(Items) Index", transform)
+	}
+}
+
 func findMethod(methods []Method, name string) *Method {
 	for i := range methods {
 		if methods[i].Name == name {

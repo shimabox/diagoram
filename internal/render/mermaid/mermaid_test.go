@@ -25,7 +25,7 @@ func build(t *testing.T, dir string) *diagram.Diagram {
 }
 
 func TestRender_GoldenFixtures(t *testing.T) {
-	cases := []string{"basic", "multi-package", "interfaces", "edge-cases", "implements"}
+	cases := []string{"basic", "multi-package", "interfaces", "edge-cases", "implements", "named-types"}
 
 	for _, name := range cases {
 		t.Run(name, func(t *testing.T) {

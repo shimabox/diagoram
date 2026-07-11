@@ -1,4 +1,4 @@
-diagoram: 2 packages, 4 structs, 5 interfaces
+diagoram: 2 packages, 4 structs, 5 interfaces, 0 named types
 
 .
   Circle      (struct)    fields=1 methods=1  → Point

@@ -1,0 +1,23 @@
+@startuml class-diagram
+    class "Index" as Index <<map>> {
+        type : map[string]*Item
+    }
+    class "Item" as Item {
+        +Name : string
+    }
+    class "Items" as Items <<slice>> {
+        type : []Item
+        +Len() : int
+    }
+    interface "Sizer" as Sizer {
+        +Len() : int
+    }
+    class "Transform" as Transform <<func>> {
+        type : func(Items) Index
+    }
+    Index "1" ..> "*" Item
+    Items "1" ..> "*" Item
+    Items ..|> Sizer
+    Transform ..> Index
+    Transform ..> Items
+@enduml

@@ -1,0 +1,8 @@
+diagoram: 1 packages, 1 structs, 1 interfaces, 3 named types
+
+.
+  Index     (map)       methods=0  → Item
+  Item      (struct)    fields=1 methods=0
+  Items     (slice)     methods=1  → Item
+  Sizer     (interface) methods=1  ← implements: Items
+  Transform (func)      methods=0  → Index, Items

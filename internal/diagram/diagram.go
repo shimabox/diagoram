@@ -25,6 +25,8 @@ const (
 	KindStruct Kind = iota
 	// KindInterface marks an Entry built from a gocode.Interface.
 	KindInterface
+	// KindNamedType marks a named slice, map, or function type.
+	KindNamedType
 )
 
 // EdgeKind distinguishes the relationships diagoram draws between
@@ -38,8 +40,8 @@ const (
 	// Embedding is a Go struct/interface embedding relationship.
 	Embedding
 	// Implementation is a heuristically detected "struct satisfies
-	// interface" relationship (see buildImplementationEdges). It always
-	// points from a KindStruct Entry to a KindInterface Entry.
+	// interface" relationship (see buildImplementationEdges). It points
+	// from a concrete named type to a KindInterface Entry.
 	Implementation
 )
 
@@ -76,7 +78,7 @@ type PackageNode struct {
 	Entries []*Entry
 }
 
-// Entry is one struct or interface, ready to be rendered.
+// Entry is one supported named Go type, ready to be rendered.
 type Entry struct {
 	// ID is a diagram-wide unique, identifier-safe name (e.g.
 	// "product_attribute_Color"). It is derived from the owning
@@ -85,7 +87,7 @@ type Entry struct {
 	ID string
 	// Name is the type's display name, as declared in source.
 	Name string
-	// Kind reports whether this Entry is a struct or an interface.
+	// Kind reports the shape of this Entry.
 	Kind Kind
 	// Doc is the first line of the type's doc comment, or "" if none.
 	Doc string
@@ -95,6 +97,25 @@ type Entry struct {
 	// interface's own method set — embedded interfaces' methods are
 	// not flattened in).
 	Methods []gocode.Method
+	// NamedType is populated only when Kind is KindNamedType.
+	NamedType *gocode.NamedType
+}
+
+// NamedTypeLabel returns the user-facing name of a named type's shape.
+func NamedTypeLabel(typ *gocode.NamedType) string {
+	if typ == nil {
+		return "type"
+	}
+	switch typ.Kind {
+	case gocode.NamedSlice:
+		return "slice"
+	case gocode.NamedMap:
+		return "map"
+	case gocode.NamedFunc:
+		return "func"
+	default:
+		return "type"
+	}
 }
 
 // Edge is one directed relationship between two Entries, identified by
@@ -228,6 +249,14 @@ func Build(pkgs []*gocode.Package) *Diagram {
 			node.Entries = append(node.Entries, e)
 			registry[entryKey{pkg.Dir, i.Name}] = e
 		}
+		for _, typ := range pkg.NamedTypes {
+			e := &Entry{
+				ID: uniqueEntryID(pkg.Dir, typ.Name, usedIDs), Name: typ.Name,
+				Kind: KindNamedType, Doc: typ.Doc, Methods: typ.Methods, NamedType: typ,
+			}
+			node.Entries = append(node.Entries, e)
+			registry[entryKey{pkg.Dir, typ.Name}] = e
+		}
 	}
 
 	sortTree(root)
@@ -253,6 +282,21 @@ func Build(pkgs []*gocode.Package) *Diagram {
 				addEdge(edges, registry, pkgByDir, dirs, pkg.Dir, self.ID, ref, Embedding)
 			}
 			for _, m := range i.Methods {
+				addMethodEdges(edges, registry, pkgByDir, dirs, pkg.Dir, self.ID, m)
+			}
+		}
+		for _, typ := range pkg.NamedTypes {
+			self := registry[entryKey{pkg.Dir, typ.Name}]
+			if typ.Kind != gocode.NamedFunc {
+				addEdge(edges, registry, pkgByDir, dirs, pkg.Dir, self.ID, typ.Underlying, Dependency)
+			}
+			for _, ref := range typ.Params {
+				addEdge(edges, registry, pkgByDir, dirs, pkg.Dir, self.ID, ref, Dependency)
+			}
+			for _, ref := range typ.Results {
+				addEdge(edges, registry, pkgByDir, dirs, pkg.Dir, self.ID, ref, Dependency)
+			}
+			for _, m := range typ.Methods {
 				addMethodEdges(edges, registry, pkgByDir, dirs, pkg.Dir, self.ID, m)
 			}
 		}

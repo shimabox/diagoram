@@ -1,7 +1,7 @@
 // Package gocode analyzes Go source code using only the standard
 // library's go/parser and go/ast packages (no go/types, no
 // golang.org/x/tools) and turns it into a language model — the facts
-// about packages, structs, interfaces, and type references that later
+// about packages, structs, interfaces, named types, and type references that later
 // phases use to build diagrams.
 //
 // The analysis is purely syntactic: it never type-checks or resolves
@@ -41,6 +41,28 @@ type Package struct {
 	// Interfaces holds every `type X interface{...}` declaration,
 	// sorted the same way as Structs.
 	Interfaces []*Interface
+	// NamedTypes holds named slice, map, and function types.
+	NamedTypes []*NamedType
+}
+
+// NamedTypeKind identifies the supported underlying shape of a named type.
+type NamedTypeKind int
+
+const (
+	NamedSlice NamedTypeKind = iota
+	NamedMap
+	NamedFunc
+)
+
+// NamedType is a declared slice, map, or function type.
+type NamedType struct {
+	Name       string
+	Doc        string
+	Kind       NamedTypeKind
+	Underlying TypeRef
+	Params     []TypeRef
+	Results    []TypeRef
+	Methods    []Method
 }
 
 // Import is a single import declaration.
