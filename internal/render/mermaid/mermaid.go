@@ -29,26 +29,27 @@ func New() *Renderer {
 // header, one flattened `namespace` block per non-root package that
 // declares at least one Entry (root-level Entries, if any, are
 // rendered directly with no namespace), and finally every Edge as an
-// arrow line. Render never returns a non-nil error; it is declared to
-// return one to satisfy render.Renderer and to leave room for future
-// validation.
-func (r *Renderer) Render(d *diagram.Diagram, _ render.Options) (string, error) {
+// arrow line. opt controls which members and edges are included (see
+// render.Options). Render never returns a non-nil error; it is
+// declared to return one to satisfy render.Renderer and to leave room
+// for future validation.
+func (r *Renderer) Render(d *diagram.Diagram, opt render.Options) (string, error) {
 	lines := []string{"classDiagram"}
-	lines = append(lines, renderTree(d.Root)...)
-	lines = append(lines, renderEdges(d.Edges)...)
+	lines = append(lines, renderTree(d.Root, opt)...)
+	lines = append(lines, renderEdges(d.Edges, opt)...)
 	return strings.Join(lines, "\n") + "\n", nil
 }
 
 // renderTree renders root's own Entries (un-namespaced, since root
 // has no meaningful package path) followed by one namespace block per
 // descendant node that owns Entries.
-func renderTree(root *diagram.PackageNode) []string {
+func renderTree(root *diagram.PackageNode, opt render.Options) []string {
 	var lines []string
 	for _, e := range root.Entries {
-		lines = append(lines, renderClass(e, 1)...)
+		lines = append(lines, renderClass(e, 1, opt)...)
 	}
 	for _, c := range root.Children {
-		lines = append(lines, renderSubtree(c)...)
+		lines = append(lines, renderSubtree(c, opt)...)
 	}
 	return lines
 }
@@ -58,33 +59,37 @@ func renderTree(root *diagram.PackageNode) []string {
 // cannot nest, so a deeper node's block is a sibling of its parent's,
 // not nested inside it; namespaceName encodes the full package path so
 // sibling blocks never collide.
-func renderSubtree(node *diagram.PackageNode) []string {
+func renderSubtree(node *diagram.PackageNode, opt render.Options) []string {
 	var lines []string
 	if len(node.Entries) > 0 {
 		lines = append(lines, indentUnit+"namespace "+namespaceName(node.Path)+" {")
 		for _, e := range node.Entries {
-			lines = append(lines, renderClass(e, 2)...)
+			lines = append(lines, renderClass(e, 2, opt)...)
 		}
 		lines = append(lines, indentUnit+"}")
 	}
 	for _, c := range node.Children {
-		lines = append(lines, renderSubtree(c)...)
+		lines = append(lines, renderSubtree(c, opt)...)
 	}
 	return lines
 }
 
 // renderClass renders a single Entry at the given indentation depth
-// (1 = top-level, 2 = inside one namespace block). Entries with no
-// body content (a struct with no fields or methods) are rendered as a
-// single line with no "{ }" block, matching diagoram's golden fixture
-// convention; interfaces always get a block, since it must carry the
-// <<interface>> stereotype line.
-func renderClass(e *diagram.Entry, depth int) []string {
+// (1 = top-level, 2 = inside one namespace block), applying opt's
+// display filters (--hide-unexported, --disable-fields,
+// --disable-methods) to its member lists first. Entries with no body
+// content left to show (e.g. a struct with no fields or methods once
+// filtered) are rendered as a single line with no "{ }" block, matching
+// diagoram's golden fixture convention; interfaces always get a block,
+// since it must carry the <<interface>> stereotype line.
+func renderClass(e *diagram.Entry, depth int, opt render.Options) []string {
 	indent := strings.Repeat(indentUnit, depth)
 	memberIndent := strings.Repeat(indentUnit, depth+1)
 	header := fmt.Sprintf(`%sclass %s["%s"]`, indent, e.ID, e.Name)
 
-	hasBody := e.Kind == diagram.KindInterface || len(e.Fields) > 0 || len(e.Methods) > 0
+	fields, methods := visibleMembers(e, opt)
+
+	hasBody := e.Kind == diagram.KindInterface || len(fields) > 0 || len(methods) > 0
 	if !hasBody {
 		return []string{header}
 	}
@@ -93,14 +98,36 @@ func renderClass(e *diagram.Entry, depth int) []string {
 	if e.Kind == diagram.KindInterface {
 		lines = append(lines, memberIndent+"<<interface>>")
 	}
-	for _, f := range e.Fields {
+	for _, f := range fields {
 		lines = append(lines, memberIndent+fieldLine(f))
 	}
-	for _, m := range e.Methods {
+	for _, m := range methods {
 		lines = append(lines, memberIndent+methodLine(m))
 	}
 	lines = append(lines, indent+"}")
 	return lines
+}
+
+// visibleMembers returns e's fields and methods after applying opt:
+// --disable-fields/--disable-methods drop a member list outright, and
+// --hide-unexported (applied afterward) drops unexported members from
+// whatever remains.
+func visibleMembers(e *diagram.Entry, opt render.Options) ([]gocode.Field, []gocode.Method) {
+	var fields []gocode.Field
+	if !opt.DisableFields {
+		fields = e.Fields
+		if opt.HideUnexported {
+			fields = diagram.ExportedFields(fields)
+		}
+	}
+	var methods []gocode.Method
+	if !opt.DisableMethods {
+		methods = e.Methods
+		if opt.HideUnexported {
+			methods = diagram.ExportedMethods(methods)
+		}
+	}
+	return fields, methods
 }
 
 // fieldLine renders one field as "[+-]Name Type".
@@ -139,13 +166,21 @@ func visibility(exported bool) string {
 // renderEdges renders every Edge as an arrow line: Dependency edges
 // use "..>" (optionally suffixed with a " : *" label when the
 // underlying reference was to a slice/array or a map, as a stand-in
-// for multiplicity), and Embedding edges use "--|>".
-func renderEdges(edges []diagram.Edge) []string {
+// for multiplicity), Embedding edges use "--|>", and Implementation
+// edges use "..|>" (skipped entirely when opt.DisableImplements is
+// set).
+func renderEdges(edges []diagram.Edge, opt render.Options) []string {
 	lines := make([]string, 0, len(edges))
 	for _, e := range edges {
+		if e.Kind == diagram.Implementation && opt.DisableImplements {
+			continue
+		}
 		arrow := "..>"
-		if e.Kind == diagram.Embedding {
+		switch e.Kind {
+		case diagram.Embedding:
 			arrow = "--|>"
+		case diagram.Implementation:
+			arrow = "..|>"
 		}
 		line := indentUnit + e.From + " " + arrow + " " + e.To
 		if e.Kind == diagram.Dependency && e.ToCollection {

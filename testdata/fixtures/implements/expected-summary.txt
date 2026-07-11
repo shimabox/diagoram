@@ -1,0 +1,14 @@
+diagoram: 2 packages, 4 structs, 5 interfaces
+
+.
+  Circle      (struct)    fields=1 methods=1  → Point
+  Describable (interface) methods=1  ← implements: extras.Widget
+  Empty       (interface) methods=0
+  Labeled     (interface) methods=1
+  Named       (interface) methods=1  ← implements: Circle, Point, Square
+  Point       (struct)    fields=2 methods=1
+  Sized       (interface) methods=1
+  Square      (struct)    fields=1 methods=1
+
+extras/
+  Widget (struct) fields=1 methods=1

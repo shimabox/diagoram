@@ -1,0 +1,10 @@
+diagoram: 3 packages, 3 structs, 0 interfaces
+
+config/
+  Config (struct) fields=2 methods=0  → attribute.Color
+
+product/
+  Product (struct) fields=3 methods=1  → attribute.Color
+
+product/attribute/
+  Color (struct) fields=2 methods=0

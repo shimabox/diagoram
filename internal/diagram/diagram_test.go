@@ -154,9 +154,14 @@ func TestBuild_MultiPackage(t *testing.T) {
 }
 
 // TestBuild_Interfaces exercises Embedding edges: interface embedding
-// (Shape embeds Named) and struct embedding (Circle embeds Base). No
-// Dependency edges are expected: every field/parameter/result in this
-// fixture is a primitive type.
+// (Shape embeds Named) and struct embedding (Circle embeds Base). It
+// also exercises Implementation edges (Phase 5A): Base directly
+// implements Named (its own Name() method), and Circle implements both
+// Named (via Base's Name() promoted one level through struct
+// embedding) and Shape (Circle's own Area() plus that same promoted
+// Name()) — matching the fixture's own doc comments. No Dependency
+// edges are expected: every field/parameter/result in this fixture is
+// a primitive type.
 func TestBuild_Interfaces(t *testing.T) {
 	d := Build(mustParse(t, fixturesDir+"/interfaces"))
 
@@ -179,7 +184,10 @@ func TestBuild_Interfaces(t *testing.T) {
 	}
 
 	wantEdges := []Edge{
+		{From: "Base", To: "Named", Kind: Implementation},
 		{From: "Circle", To: "Base", Kind: Embedding},
+		{From: "Circle", To: "Named", Kind: Implementation},
+		{From: "Circle", To: "Shape", Kind: Implementation},
 		{From: "Shape", To: "Named", Kind: Embedding},
 	}
 	if len(d.Edges) != len(wantEdges) {

@@ -15,5 +15,8 @@ classDiagram
         <<interface>>
         +Area() float64
     }
+    Base ..|> Named
     Circle --|> Base
+    Circle ..|> Named
+    Circle ..|> Shape
     Shape --|> Named

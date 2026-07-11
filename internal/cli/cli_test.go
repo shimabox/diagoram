@@ -67,6 +67,48 @@ func TestRun(t *testing.T) {
 			wantCode:      0,
 			wantStdoutHas: "--show-external",
 		},
+		{
+			name:          "-h mentions --hide-unexported",
+			args:          []string{"-h"},
+			wantCode:      0,
+			wantStdoutHas: "--hide-unexported",
+		},
+		{
+			name:          "-h mentions --disable-fields",
+			args:          []string{"-h"},
+			wantCode:      0,
+			wantStdoutHas: "--disable-fields",
+		},
+		{
+			name:          "-h mentions --disable-methods",
+			args:          []string{"-h"},
+			wantCode:      0,
+			wantStdoutHas: "--disable-methods",
+		},
+		{
+			name:          "-h mentions --disable-implements",
+			args:          []string{"-h"},
+			wantCode:      0,
+			wantStdoutHas: "--disable-implements",
+		},
+		{
+			name:          "-h mentions --rel-target",
+			args:          []string{"-h"},
+			wantCode:      0,
+			wantStdoutHas: "--rel-target=",
+		},
+		{
+			name:          "-h mentions --rel-target-depth",
+			args:          []string{"-h"},
+			wantCode:      0,
+			wantStdoutHas: "--rel-target-depth",
+		},
+		{
+			name:          "-h mentions --summary",
+			args:          []string{"-h"},
+			wantCode:      0,
+			wantStdoutHas: "--summary",
+		},
 	}
 
 	for _, tt := range tests {
@@ -213,6 +255,103 @@ func TestRunE2E_ShowExternalWithoutPackageDiagram(t *testing.T) {
 		t.Fatalf("Run exit code = %d, want 0 (stderr=%q)", code, stderr.String())
 	}
 	testutil.Golden(t, fixturesDir+"/basic/expected-class.mmd", stdout.String())
+}
+
+// TestRunE2E_SummaryAndPackageDiagramMutuallyExclusive makes sure
+// --summary and --package-diagram together fail with a helpful error,
+// mirroring --class-diagram/--package-diagram's own exclusivity check.
+func TestRunE2E_SummaryAndPackageDiagramMutuallyExclusive(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"--summary", "--package-diagram", fixturesDir + "/basic"}, &stdout, &stderr)
+
+	if code == 0 {
+		t.Fatalf("Run exit code = 0, want non-zero (stdout=%q)", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "--summary") || !strings.Contains(stderr.String(), "--package-diagram") {
+		t.Errorf("stderr = %q, want it to mention both --summary and --package-diagram", stderr.String())
+	}
+}
+
+// TestRunE2E_Summary runs --summary against the "multi-package"
+// fixture end to end and compares stdout against the same
+// expected-summary.txt golden diagram.Summary's own tests use.
+func TestRunE2E_Summary(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"--summary", fixturesDir + "/multi-package"}, &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("Run exit code = %d, want 0 (stderr=%q)", code, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("stderr = %q, want empty", stderr.String())
+	}
+
+	testutil.Golden(t, fixturesDir+"/multi-package/expected-summary.txt", stdout.String())
+}
+
+// TestRunE2E_RelTarget exercises --rel-target/--rel-target-depth end
+// to end against the "multi-package" fixture: depth 0 keeps only the
+// named type, and an unresolvable name reports a candidate-listing
+// error rather than an empty or partial diagram.
+func TestRunE2E_RelTarget(t *testing.T) {
+	dir := fixturesDir + "/multi-package"
+
+	t.Run("depth 0 narrows the class diagram to just the target", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+
+		code := Run([]string{"--rel-target=Product", "--rel-target-depth=0", dir}, &stdout, &stderr)
+
+		if code != 0 {
+			t.Fatalf("Run exit code = %d, want 0 (stderr=%q)", code, stderr.String())
+		}
+		if !strings.Contains(stdout.String(), "Product") {
+			t.Errorf("stdout = %q, want it to include Product", stdout.String())
+		}
+		if strings.Contains(stdout.String(), "Config") {
+			t.Errorf("stdout = %q, want no Config at depth 0", stdout.String())
+		}
+		// Product's own field text still spells out "attribute.Color"
+		// (field types are not rewritten by filtering), but Color must
+		// not get its own class block or namespace at depth 0.
+		if strings.Contains(stdout.String(), "class product_attribute_Color") || strings.Contains(stdout.String(), "namespace product_attribute") {
+			t.Errorf("stdout = %q, want no separate Color class/namespace at depth 0", stdout.String())
+		}
+	})
+
+	t.Run("unknown target reports candidates instead of an empty diagram", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+
+		code := Run([]string{"--rel-target=NoSuchType", dir}, &stdout, &stderr)
+
+		if code == 0 {
+			t.Fatalf("Run exit code = 0, want non-zero (stdout=%q)", stdout.String())
+		}
+		if !strings.Contains(stderr.String(), "NoSuchType") || !strings.Contains(stderr.String(), "Product") {
+			t.Errorf("stderr = %q, want it to mention NoSuchType and a candidate like Product", stderr.String())
+		}
+	})
+}
+
+// TestRunE2E_DisplayOptions is a light smoke test that the display
+// flags are actually wired from parsed Options into the renderer (the
+// filtering behavior itself is covered by internal/render/mermaid's
+// own tests).
+func TestRunE2E_DisplayOptions(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"--hide-unexported", "--disable-fields", fixturesDir + "/basic"}, &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("Run exit code = %d, want 0 (stderr=%q)", code, stderr.String())
+	}
+	if strings.Contains(stdout.String(), "stock int") {
+		t.Errorf("stdout = %q, want unexported \"stock\" field hidden", stdout.String())
+	}
+	if strings.Contains(stdout.String(), "Name string") {
+		t.Errorf("stdout = %q, want fields disabled entirely", stdout.String())
+	}
 }
 
 // TestRunE2E_IncludeExclude exercises --include/--exclude end to end:

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/shimabox/diagoram/internal/diagram"
 	"github.com/shimabox/diagoram/internal/gocode"
@@ -39,6 +40,33 @@ Options:
                       library, other modules) as light-colored nodes.
                       Only affects --package-diagram; ignored
                       otherwise.
+  --hide-unexported   Hide unexported fields and methods. Only affects
+                      --class-diagram (and --summary); ignored
+                      otherwise.
+  --disable-fields    Do not draw fields in the class diagram. Only
+                      affects --class-diagram (and --summary); ignored
+                      otherwise.
+  --disable-methods   Do not draw methods in the class diagram. Only
+                      affects --class-diagram (and --summary); ignored
+                      otherwise.
+  --disable-implements
+                      Do not draw heuristically detected "struct
+                      implements interface" relationships. Only
+                      affects --class-diagram (and --summary); ignored
+                      otherwise.
+  --rel-target='A,B'  Only include types reachable from these names
+                      (comma-separated; a bare type name such as
+                      "Product", or "pkg.Type" such as
+                      "attribute.Color"; repeatable). Only affects
+                      --class-diagram (and --summary); ignored
+                      otherwise.
+  --rel-target-depth=N
+                      With --rel-target, how many hops of
+                      dependency/embedding/implementation edges to
+                      follow from the target types (default 1).
+  --summary           Print a plain-text summary of the analyzed types
+                      instead of a diagram. Cannot be combined with
+                      --package-diagram.
   --include='glob'    Only analyze files matching glob (repeatable;
                       default "*.go")
   --exclude='glob'    Skip files matching glob (repeatable; default
@@ -67,6 +95,32 @@ type Options struct {
 	// light-colored nodes. It only affects PackageDiagram; it is
 	// harmless (silently ignored) otherwise.
 	ShowExternal bool
+	// HideUnexported hides unexported fields/methods (--hide-unexported).
+	// It only affects a class diagram/summary; harmless otherwise.
+	HideUnexported bool
+	// DisableFields omits fields from a class diagram/summary
+	// (--disable-fields). It only affects those; harmless otherwise.
+	DisableFields bool
+	// DisableMethods omits methods from a class diagram/summary
+	// (--disable-methods). It only affects those; harmless otherwise.
+	DisableMethods bool
+	// DisableImplements omits heuristically detected implementation
+	// edges from a class diagram/summary (--disable-implements). It
+	// only affects those; harmless otherwise.
+	DisableImplements bool
+	// Summary requests a plain-text summary instead of a diagram
+	// (--summary). It cannot be combined with PackageDiagram.
+	Summary bool
+	// RelTargets is the list of --rel-target names (already split on
+	// commas across every occurrence of the flag) that scope a class
+	// diagram/summary to the types reachable from them. Empty means no
+	// filtering. It only affects a class diagram/summary; harmless
+	// otherwise.
+	RelTargets []string
+	// RelTargetDepth is how many hops FilterByRelTarget follows from
+	// RelTargets (--rel-target-depth). Only meaningful when RelTargets
+	// is non-empty.
+	RelTargetDepth int
 	// Include is the list of glob patterns passed via --include
 	// (matched against a file's base name). Empty means gocode.Parse's
 	// default ("*.go").
@@ -97,6 +151,21 @@ func parseArgs(args []string, stderr io.Writer) (*Options, error) {
 	fs.BoolVar(&opts.ClassDiagram, "class-diagram", false, "output a class diagram (default)")
 	fs.BoolVar(&opts.PackageDiagram, "package-diagram", false, "output a package dependency diagram")
 	fs.BoolVar(&opts.ShowExternal, "show-external", false, "also draw packages outside <dir> in the package diagram")
+	fs.BoolVar(&opts.HideUnexported, "hide-unexported", false, "hide unexported fields and methods")
+	fs.BoolVar(&opts.DisableFields, "disable-fields", false, "do not draw fields in the class diagram")
+	fs.BoolVar(&opts.DisableMethods, "disable-methods", false, "do not draw methods in the class diagram")
+	fs.BoolVar(&opts.DisableImplements, "disable-implements", false, "do not draw heuristically detected interface implementations")
+	fs.BoolVar(&opts.Summary, "summary", false, "print a plain-text summary of the analyzed types instead of a diagram")
+	fs.IntVar(&opts.RelTargetDepth, "rel-target-depth", 1, "with --rel-target, how many hops of edges to follow from the target types")
+	fs.Func("rel-target", "only include types reachable from these names (comma-separated; type name or pkg.Type; repeatable)", func(v string) error {
+		for _, part := range strings.Split(v, ",") {
+			part = strings.TrimSpace(part)
+			if part != "" {
+				opts.RelTargets = append(opts.RelTargets, part)
+			}
+		}
+		return nil
+	})
 	fs.Func("include", "only analyze files matching this glob (repeatable; default \"*.go\")", func(v string) error {
 		opts.Include = append(opts.Include, v)
 		return nil
@@ -142,6 +211,11 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
+	if opts.Summary && opts.PackageDiagram {
+		fmt.Fprintf(stderr, "Error: --summary and --package-diagram cannot be used together. --summary only describes the class diagram's types.\n\n%s", usage)
+		return 1
+	}
+
 	if opts.Dir == "" {
 		fmt.Fprintf(stderr, "Error: missing required <dir> argument.\n\n%s", usage)
 		return 1
@@ -182,12 +256,40 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		}
 		g := diagram.BuildPackageGraph(pkgs, modulePath, opts.ShowExternal)
 		out, err = mermaid.New().RenderPackageGraph(g, render.Options{})
+		if err != nil {
+			fmt.Fprintf(stderr, "Error: cannot render diagram: %v\n", err)
+			return 1
+		}
 	} else {
-		out, err = mermaid.New().Render(diagram.Build(pkgs), render.Options{})
-	}
-	if err != nil {
-		fmt.Fprintf(stderr, "Error: cannot render diagram: %v\n", err)
-		return 1
+		d := diagram.Build(pkgs)
+		if len(opts.RelTargets) > 0 {
+			filtered, filterErr := diagram.FilterByRelTarget(d, opts.RelTargets, opts.RelTargetDepth)
+			if filterErr != nil {
+				fmt.Fprintf(stderr, "Error: %v\n", filterErr)
+				return 1
+			}
+			d = filtered
+		}
+
+		if opts.Summary {
+			out = diagram.Summary(d, diagram.SummaryOptions{
+				HideUnexported:    opts.HideUnexported,
+				DisableFields:     opts.DisableFields,
+				DisableMethods:    opts.DisableMethods,
+				DisableImplements: opts.DisableImplements,
+			})
+		} else {
+			out, err = mermaid.New().Render(d, render.Options{
+				HideUnexported:    opts.HideUnexported,
+				DisableFields:     opts.DisableFields,
+				DisableMethods:    opts.DisableMethods,
+				DisableImplements: opts.DisableImplements,
+			})
+			if err != nil {
+				fmt.Fprintf(stderr, "Error: cannot render diagram: %v\n", err)
+				return 1
+			}
+		}
 	}
 
 	fmt.Fprint(stdout, out)

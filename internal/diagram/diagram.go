@@ -35,6 +35,10 @@ const (
 	Dependency EdgeKind = iota
 	// Embedding is a Go struct/interface embedding relationship.
 	Embedding
+	// Implementation is a heuristically detected "struct satisfies
+	// interface" relationship (see buildImplementationEdges). It always
+	// points from a KindStruct Entry to a KindInterface Entry.
+	Implementation
 )
 
 // Diagram is the fully built intermediate representation: the package
@@ -228,6 +232,14 @@ func Build(pkgs []*gocode.Package) *Diagram {
 		}
 	}
 
+	for _, e := range buildImplementationEdges(pkgs, registry, pkgByDir, dirs) {
+		key := edgeKey{From: e.From, To: e.To, Kind: Implementation}
+		if _, exists := edges[key]; !exists {
+			e := e
+			edges[key] = &e
+		}
+	}
+
 	sortedEdges := make([]Edge, 0, len(edges))
 	for _, e := range edges {
 		sortedEdges = append(sortedEdges, *e)
@@ -296,28 +308,43 @@ func addEdge(edges map[edgeKey]*Edge, registry map[entryKey]*Entry, pkgByDir map
 // every known package directory's path suffix to find the target
 // directory.
 func resolveTypeRef(registry map[entryKey]*Entry, pkgByDir map[string]*gocode.Package, dirs []string, fromDir string, ref gocode.TypeRef) (*Entry, bool) {
-	if ref.Name == "" {
+	key, ok := resolveRefKey(pkgByDir, dirs, fromDir, ref)
+	if !ok {
 		return nil, false
+	}
+	e, ok := registry[key]
+	return e, ok
+}
+
+// resolveRefKey resolves ref to the entryKey it names, without
+// requiring a populated registry: it is the shared address-resolution
+// step behind both resolveTypeRef (dependency/embedding edges) and
+// buildImplementationEdges (interface embedding expansion), so both
+// features agree on how a TypeRef's package qualifier maps to an
+// analyzed package directory. See resolveTypeRef's doc comment for the
+// resolution rule itself.
+func resolveRefKey(pkgByDir map[string]*gocode.Package, dirs []string, fromDir string, ref gocode.TypeRef) (entryKey, bool) {
+	if ref.Name == "" {
+		return entryKey{}, false
 	}
 
 	targetDir := fromDir
 	if ref.PkgName != "" {
 		pkg := pkgByDir[fromDir]
 		if pkg == nil {
-			return nil, false
+			return entryKey{}, false
 		}
 		imp, ok := findImport(pkg.Imports, ref.PkgName)
 		if !ok {
-			return nil, false
+			return entryKey{}, false
 		}
 		targetDir, ok = resolveImportDir(dirs, imp.Path)
 		if !ok {
-			return nil, false
+			return entryKey{}, false
 		}
 	}
 
-	e, ok := registry[entryKey{targetDir, ref.Name}]
-	return e, ok
+	return entryKey{targetDir, ref.Name}, true
 }
 
 // findImport finds the import declaration that the identifier

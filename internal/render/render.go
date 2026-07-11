@@ -8,10 +8,23 @@ import "github.com/shimabox/diagoram/internal/diagram"
 
 // Options controls renderer behavior. It is shared across output
 // formats; fields that only apply to some formats are documented as
-// such. It currently has no fields — filtering/visibility options
-// (--hide-unexported, --disable-fields, ...) are added in later
-// phases.
-type Options struct{}
+// such.
+type Options struct {
+	// HideUnexported drops unexported fields and methods from every
+	// rendered Entry (--hide-unexported). It does not hide an Entry
+	// itself, even one with an unexported name.
+	HideUnexported bool
+	// DisableFields omits every Entry's fields from the rendered class
+	// body (--disable-fields).
+	DisableFields bool
+	// DisableMethods omits every Entry's methods from the rendered
+	// class body (--disable-methods).
+	DisableMethods bool
+	// DisableImplements omits diagram.Implementation edges from the
+	// rendered diagram (--disable-implements), for projects where the
+	// heuristic produces too many arrows to read comfortably.
+	DisableImplements bool
+}
 
 // Renderer turns a diagram.Diagram into its textual representation in
 // some output format (e.g. Mermaid, PlantUML).

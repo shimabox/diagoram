@@ -1,0 +1,44 @@
+classDiagram
+    class Circle["Circle"] {
+        +Radius int
+        +Diameter() int
+    }
+    class Describable["Describable"] {
+        <<interface>>
+        +Describe() string
+    }
+    class Empty["Empty"] {
+        <<interface>>
+    }
+    class Labeled["Labeled"] {
+        <<interface>>
+        +Name() int
+    }
+    class Named["Named"] {
+        <<interface>>
+        +Name() string
+    }
+    class Point["Point"] {
+        +X int
+        +Y int
+        +Name() string
+    }
+    class Sized["Sized"] {
+        <<interface>>
+        +Size() int
+    }
+    class Square["Square"] {
+        +Side int
+        +Name() string
+    }
+    namespace extras {
+        class extras_Widget["Widget"] {
+            +ID int
+            +Describe() string
+        }
+    }
+    Circle --|> Point
+    Circle ..|> Named
+    Point ..|> Named
+    Square ..|> Named
+    extras_Widget ..|> Describable
