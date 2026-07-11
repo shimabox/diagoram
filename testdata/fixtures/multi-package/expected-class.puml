@@ -1,0 +1,24 @@
+@startuml class-diagram
+    package config as config {
+        class "Config\n<b>Config holds application configuration.</b>" as config_Config {
+            +Debug : bool
+            +DefaultColor : attr.Color
+        }
+    }
+    package product as product {
+        class "Product\n<b>Product represents an item for sale, with a color from another package.</b>" as product_Product {
+            +Name : string
+            +Color : attribute.Color
+            +Tags : []string
+            +PrimaryColor() : attribute.Color
+        }
+        package attribute as product_attribute {
+            class "Color\n<b>Color describes a product color.</b>" as product_attribute_Color {
+                +Name : string
+                +Hex : string
+            }
+        }
+    }
+    config_Config ..> product_attribute_Color
+    product_Product ..> product_attribute_Color
+@enduml

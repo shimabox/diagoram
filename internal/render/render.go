@@ -33,3 +33,15 @@ type Renderer interface {
 	// cannot be rendered under opt.
 	Render(d *diagram.Diagram, opt Options) (string, error)
 }
+
+// PackageGraphRenderer is implemented by every Renderer that can also
+// render a diagram.PackageGraph (--package-diagram). It is a separate
+// interface, rather than a method on Renderer itself, so that a future
+// output format could in principle support only one diagram kind; both
+// of diagoram's current renderers (mermaid, plantuml) implement it.
+type PackageGraphRenderer interface {
+	Renderer
+	// RenderPackageGraph returns g's textual representation, or an
+	// error if g cannot be rendered under opt.
+	RenderPackageGraph(g *diagram.PackageGraph, opt Options) (string, error)
+}

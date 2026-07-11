@@ -41,12 +41,12 @@
 
 ## タスク（TDD 順）
 
-- [ ] 6-1. 既存 fixture すべてに `expected-class.puml` / `expected-package.puml` の golden を先に書く（オーケストレーターがレビューして確定）
-- [ ] 6-2. クラス図レンダラ実装 → golden 全緑
-- [ ] 6-3. パッケージ図レンダラ実装 → golden 全緑
-- [ ] 6-4. `--format` フラグの CLI 統合テスト（不正値エラー含む）
-- [ ] 6-5. 出力を実際に PlantUML でレンダリングして目視確認（Docker: `docker run --rm -i plantuml/plantuml -pipe -tsvg < out.puml > out.svg` などで確認し、確認手順を README 用にメモ）
-- [ ] 6-6. コードレビュー → コミット → **v0.4.0** タグ
+- [x] 6-1. 既存 fixture すべてに `expected-class.puml` / `expected-package.puml` の golden を先に書く（オーケストレーターがレビューして確定）
+- [x] 6-2. クラス図レンダラ実装 → golden 全緑
+- [x] 6-3. パッケージ図レンダラ実装 → golden 全緑
+- [x] 6-4. `--format` フラグの CLI 統合テスト（不正値エラー含む）
+- [x] 6-5. 出力を実際に PlantUML でレンダリングして目視確認（Docker: `docker run --rm -i plantuml/plantuml -pipe -tsvg < out.puml > out.svg` などで確認し、確認手順を README 用にメモ）
+- [x] 6-6. コードレビュー → コミット → **v0.4.0** タグ
 
 ## 受け入れ基準
 - mermaid / plantuml の両レンダラが同じ IR から生成されている（レンダラ追加で解析層に変更が入っていない）
@@ -55,3 +55,12 @@
 ## スコープ外
 - 画像化の同梱（Phase 7 の Docker で扱う）
 - SVG リンク（`--svg-topurl` 相当）は v1.0 後の将来課題
+
+## 実装時の決定事項（Phase 6 完了時に記録）
+- IR 層（gocode/diagram）への変更ゼロでレンダラを追加できた（2 層分離の設計意図どおり）
+- `render.PackageGraphRenderer` インターフェース（Renderer + RenderPackageGraph）を追加し、mermaid/plantuml が共に実装
+- Doc 併記: `class "Name\n<b>doc 1行目</b>" as alias` 形式（php-class-diagram の class-name-summary 相当）。常時有効（Mermaid 側に安全な置き場がないため専用フラグは設けない）。`"` と `\` はエスケープ
+- フィールド/メソッドは `名前 : 型` 区切り。Go の型表記はほぼそのまま出せる。複数メンバの匿名struct等は go/printer の改行/タブを空白に潰す（safeType）
+- Embedding は `To <|-- From`（親が左）。パッケージ alias はアンダースコア結合（Entry.ID の接頭辞と一致させる）
+- サブツリーに Entry を持たないパッケージブロックは出力しない（cmd/diagoram のような func main() のみのパッケージで空ブロックが出るバグをドッグフーディングで発見・修正済み）
+- 全 golden + 自己解析出力を実 PlantUML（docker plantuml/plantuml -pipe -tsvg）で SVG 化し構文検証済み

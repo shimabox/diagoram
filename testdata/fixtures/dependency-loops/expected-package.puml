@@ -1,0 +1,10 @@
+@startuml package-related-diagram
+    package alpha as alpha
+    package beta as beta
+    package gamma as gamma {
+        package sub as gamma_sub
+    }
+    alpha <-[#red,plain,thickness=4]-> beta
+    alpha --> gamma
+    gamma --> gamma_sub
+@enduml

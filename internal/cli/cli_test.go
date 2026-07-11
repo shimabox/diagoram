@@ -109,6 +109,18 @@ func TestRun(t *testing.T) {
 			wantCode:      0,
 			wantStdoutHas: "--summary",
 		},
+		{
+			name:          "-h mentions --format",
+			args:          []string{"-h"},
+			wantCode:      0,
+			wantStdoutHas: "--format=mermaid|plantuml",
+		},
+		{
+			name:          "unknown --format value reports candidates",
+			args:          []string{"--format=graphviz", fixturesDir + "/basic"},
+			wantCode:      1,
+			wantStderrHas: `unknown --format "graphviz". Valid formats: mermaid, plantuml`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -167,6 +179,60 @@ func TestRunE2E_ClassDiagram(t *testing.T) {
 			testutil.Golden(t, fixturesDir+"/"+name+"/expected-class.mmd", stdout.String())
 		})
 	}
+}
+
+// TestRunE2E_ClassDiagram_PlantUML mirrors TestRunE2E_ClassDiagram for
+// --format=plantuml, comparing stdout against the same
+// expected-class.puml golden files internal/render/plantuml's own
+// tests use.
+func TestRunE2E_ClassDiagram_PlantUML(t *testing.T) {
+	cases := []string{"basic", "multi-package", "interfaces", "edge-cases", "implements"}
+
+	for _, name := range cases {
+		t.Run(name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+
+			code := Run([]string{"--format=plantuml", fixturesDir + "/" + name}, &stdout, &stderr)
+
+			if code != 0 {
+				t.Fatalf("Run exit code = %d, want 0 (stderr=%q)", code, stderr.String())
+			}
+
+			testutil.Golden(t, fixturesDir+"/"+name+"/expected-class.puml", stdout.String())
+		})
+	}
+}
+
+// TestRunE2E_PackageDiagram_PlantUML mirrors TestRunE2E_PackageDiagram
+// for --format=plantuml, comparing stdout against the same
+// expected-package*.puml golden files internal/render/plantuml's own
+// tests use.
+func TestRunE2E_PackageDiagram_PlantUML(t *testing.T) {
+	dir := fixturesDir + "/dependency-loops"
+
+	t.Run("default hides external packages", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+
+		code := Run([]string{"--package-diagram", "--format=plantuml", dir}, &stdout, &stderr)
+
+		if code != 0 {
+			t.Fatalf("Run exit code = %d, want 0 (stderr=%q)", code, stderr.String())
+		}
+
+		testutil.Golden(t, dir+"/expected-package.puml", stdout.String())
+	})
+
+	t.Run("--show-external includes fmt", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+
+		code := Run([]string{"--package-diagram", "--format=plantuml", "--show-external", dir}, &stdout, &stderr)
+
+		if code != 0 {
+			t.Fatalf("Run exit code = %d, want 0 (stderr=%q)", code, stderr.String())
+		}
+
+		testutil.Golden(t, dir+"/expected-package-external.puml", stdout.String())
+	})
 }
 
 // TestRunE2E_EdgeCasesReportsWarning runs the CLI against the

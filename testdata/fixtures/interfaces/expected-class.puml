@@ -1,0 +1,21 @@
+@startuml class-diagram
+    class "Base\n<b>Base provides a Name() method via an embedded field.</b>" as Base {
+        +Label : string
+        +Name() : string
+    }
+    class "Circle\n<b>Circle is a shape that satisfies Shape by embedding Base and adding</b>" as Circle {
+        +Radius : float64
+        +Area() : float64
+    }
+    interface "Named\n<b>Named provides a display name.</b>" as Named {
+        +Name() : string
+    }
+    interface "Shape\n<b>Shape describes a 2D shape. It embeds Named.</b>" as Shape {
+        +Area() : float64
+    }
+    Base ..|> Named
+    Base <|-- Circle
+    Circle ..|> Named
+    Circle ..|> Shape
+    Named <|-- Shape
+@enduml

@@ -1,0 +1,39 @@
+@startuml class-diagram
+    class "Circle\n<b>Circle implements Named only through Point's promoted Name()</b>" as Circle {
+        +Radius : int
+        +Diameter() : int
+    }
+    interface "Describable\n<b>Describable is implemented by extras.Widget, a struct in another</b>" as Describable {
+        +Describe() : string
+    }
+    interface "Empty\n<b>Empty has zero methods, so it must be excluded from implementation</b>" as Empty
+    interface "Labeled\n<b>Labeled looks like Named at a glance (same method name, \"Name\") but</b>" as Labeled {
+        +Name() : int
+    }
+    interface "Named\n<b>Named is implemented directly by Point and Square, and indirectly by</b>" as Named {
+        +Name() : string
+    }
+    class "Point\n<b>Point implements Named directly.</b>" as Point {
+        +X : int
+        +Y : int
+        +Name() : string
+    }
+    interface "Sized\n<b>Sized has no implementer in this fixture: nothing declares a</b>" as Sized {
+        +Size() : int
+    }
+    class "Square\n<b>Square implements Named directly, with its own Name() (not via</b>" as Square {
+        +Side : int
+        +Name() : string
+    }
+    package extras as extras {
+        class "Widget\n<b>Widget implements the root implements package's Describable.</b>" as extras_Widget {
+            +ID : int
+            +Describe() : string
+        }
+    }
+    Point <|-- Circle
+    Circle ..|> Named
+    Point ..|> Named
+    Square ..|> Named
+    extras_Widget ..|> Describable
+@enduml

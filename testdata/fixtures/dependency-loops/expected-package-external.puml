@@ -1,0 +1,12 @@
+@startuml package-related-diagram
+    package alpha as alpha
+    package beta as beta
+    package gamma as gamma {
+        package sub as gamma_sub
+    }
+    package "fmt" as ext_fmt #DDDDDD
+    alpha <-[#red,plain,thickness=4]-> beta
+    alpha --> ext_fmt
+    alpha --> gamma
+    gamma --> gamma_sub
+@enduml

@@ -1,0 +1,10 @@
+@startuml class-diagram
+    class "Product\n<b>Product represents an item for sale.</b>" as Product {
+        +Name : string
+        +Price : int
+        -stock : int
+        +Discount(int)
+        +Stock() : int
+        -restock(int)
+    }
+@enduml

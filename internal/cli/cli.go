@@ -15,6 +15,7 @@ import (
 	"github.com/shimabox/diagoram/internal/gocode"
 	"github.com/shimabox/diagoram/internal/render"
 	"github.com/shimabox/diagoram/internal/render/mermaid"
+	"github.com/shimabox/diagoram/internal/render/plantuml"
 )
 
 // version is the diagoram version string. It defaults to "dev" for
@@ -36,6 +37,9 @@ Options:
                       each other (a two-package import cycle) are
                       drawn with a red, bold, bidirectional arrow.
                       Cannot be combined with --class-diagram.
+  --format=mermaid|plantuml
+                      Output format (default "mermaid"). Ignored
+                      (harmless) when combined with --summary.
   --show-external     Also draw packages outside <dir> (the standard
                       library, other modules) as light-colored nodes.
                       Only affects --package-diagram; ignored
@@ -90,6 +94,11 @@ type Options struct {
 	// PackageDiagram requests a package dependency diagram instead of
 	// a class diagram. It cannot be combined with ClassDiagram.
 	PackageDiagram bool
+	// Format selects the output format (--format): "mermaid" (the
+	// default) or "plantuml". It is validated in Run, not parseArgs, so
+	// that an invalid value can be reported alongside the list of
+	// valid ones; it is ignored (harmless) when Summary is set.
+	Format string
 	// ShowExternal includes packages outside the analyzed directory
 	// (the standard library, other modules) in the package diagram, as
 	// light-colored nodes. It only affects PackageDiagram; it is
@@ -150,6 +159,7 @@ func parseArgs(args []string, stderr io.Writer) (*Options, error) {
 	fs.BoolVar(&opts.Version, "version", false, "show version information and exit")
 	fs.BoolVar(&opts.ClassDiagram, "class-diagram", false, "output a class diagram (default)")
 	fs.BoolVar(&opts.PackageDiagram, "package-diagram", false, "output a package dependency diagram")
+	fs.StringVar(&opts.Format, "format", "mermaid", `output format: "mermaid" or "plantuml"`)
 	fs.BoolVar(&opts.ShowExternal, "show-external", false, "also draw packages outside <dir> in the package diagram")
 	fs.BoolVar(&opts.HideUnexported, "hide-unexported", false, "hide unexported fields and methods")
 	fs.BoolVar(&opts.DisableFields, "disable-fields", false, "do not draw fields in the class diagram")
@@ -186,6 +196,25 @@ func parseArgs(args []string, stderr io.Writer) (*Options, error) {
 	return opts, nil
 }
 
+// validFormats lists every value --format accepts, in the order they
+// are suggested by selectRenderer's error message.
+var validFormats = []string{"mermaid", "plantuml"}
+
+// selectRenderer returns the render.PackageGraphRenderer for the given
+// --format value ("mermaid" or "plantuml"; "" defaults to "mermaid"
+// exactly as parseArgs' own flag default does), or an error listing
+// the valid formats when format matches none of them.
+func selectRenderer(format string) (render.PackageGraphRenderer, error) {
+	switch format {
+	case "", "mermaid":
+		return mermaid.New(), nil
+	case "plantuml":
+		return plantuml.New(), nil
+	default:
+		return nil, fmt.Errorf("unknown --format %q. Valid formats: %s", format, strings.Join(validFormats, ", "))
+	}
+}
+
 // Run parses args and executes the CLI, writing normal output to
 // stdout and errors/usage to stderr. It returns the process exit
 // code: 0 on success, non-zero on failure.
@@ -213,6 +242,12 @@ func Run(args []string, stdout, stderr io.Writer) int {
 
 	if opts.Summary && opts.PackageDiagram {
 		fmt.Fprintf(stderr, "Error: --summary and --package-diagram cannot be used together. --summary only describes the class diagram's types.\n\n%s", usage)
+		return 1
+	}
+
+	renderer, formatErr := selectRenderer(opts.Format)
+	if formatErr != nil {
+		fmt.Fprintf(stderr, "Error: %v\n\n%s", formatErr, usage)
 		return 1
 	}
 
@@ -255,7 +290,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return 1
 		}
 		g := diagram.BuildPackageGraph(pkgs, modulePath, opts.ShowExternal)
-		out, err = mermaid.New().RenderPackageGraph(g, render.Options{})
+		out, err = renderer.RenderPackageGraph(g, render.Options{})
 		if err != nil {
 			fmt.Fprintf(stderr, "Error: cannot render diagram: %v\n", err)
 			return 1
@@ -279,7 +314,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 				DisableImplements: opts.DisableImplements,
 			})
 		} else {
-			out, err = mermaid.New().Render(d, render.Options{
+			out, err = renderer.Render(d, render.Options{
 				HideUnexported:    opts.HideUnexported,
 				DisableFields:     opts.DisableFields,
 				DisableMethods:    opts.DisableMethods,

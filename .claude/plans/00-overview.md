@@ -86,7 +86,7 @@ diagoram [options] <dir>
 | [3](03-phase3-mermaid-class-diagram.md) | IR + Mermaid クラス図 | **E2E で動く MVP**。`diagoram <dir>` がクラス図を出す | **完了 (v0.1.0)** |
 | [4](04-phase4-package-diagram.md) | パッケージ依存図 | 循環依存の赤線警告つきパッケージ図が出る | **完了 (v0.2.0)** |
 | [5](05-phase5-filters-and-implements.md) | フィルタ + interface 実装検出 + summary | 大規模プロジェクトで実用になる | **完了 (v0.3.0)** |
-| [6](06-phase6-plantuml.md) | PlantUML レンダラ | `--format=plantuml` が動く | 未着手 |
+| [6](06-phase6-plantuml.md) | PlantUML レンダラ | `--format=plantuml` が動く | **完了 (v0.4.0)** |
 | [7](07-phase7-docker-release.md) | Docker・README・ドッグフーディング | `docker run` で誰でも使える。README に自分自身の図 | 未着手 |
 
 各フェーズ末尾でタグを打つ（Phase 3 = v0.1.0, 4 = v0.2.0, 5 = v0.3.0, 6 = v0.4.0, 7 = v1.0.0）。
