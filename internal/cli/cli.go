@@ -47,8 +47,10 @@ Options:
                       Only affects --package-diagram; ignored
                       otherwise.
 	  --hide-unexported   Hide unexported types, fields, and methods. Only affects
-                      --class-diagram (and --summary); ignored
-                      otherwise.
+	                      --class-diagram (and --summary); ignored
+	                      otherwise.
+	  --show-constants    Show constants associated with named types in
+	                      class diagrams. Ignored otherwise.
   --disable-fields    Do not draw fields in the class diagram. Only
                       affects --class-diagram (and --summary); ignored
                       otherwise.
@@ -112,6 +114,8 @@ type Options struct {
 	// HideUnexported hides unexported fields/methods (--hide-unexported).
 	// It only affects a class diagram/summary; harmless otherwise.
 	HideUnexported bool
+	// ShowConstants includes named-type constants in class diagrams.
+	ShowConstants bool
 	// DisableFields omits fields from a class diagram/summary
 	// (--disable-fields). It only affects those; harmless otherwise.
 	DisableFields bool
@@ -169,6 +173,7 @@ func parseArgs(args []string, stderr io.Writer) (*Options, error) {
 	fs.StringVar(&opts.Format, "format", "mermaid", `output format: "mermaid" or "plantuml"`)
 	fs.BoolVar(&opts.ShowExternal, "show-external", false, "also draw packages outside <dir> in the package diagram")
 	fs.BoolVar(&opts.HideUnexported, "hide-unexported", false, "hide unexported types, fields, and methods")
+	fs.BoolVar(&opts.ShowConstants, "show-constants", false, "show constants associated with named types")
 	fs.BoolVar(&opts.DisableFields, "disable-fields", false, "do not draw fields in the class diagram")
 	fs.BoolVar(&opts.DisableMethods, "disable-methods", false, "do not draw methods in the class diagram")
 	fs.BoolVar(&opts.DisableImplements, "disable-implements", false, "do not draw heuristically detected interface implementations")
@@ -342,6 +347,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		} else {
 			out, err = renderer.Render(d, render.Options{
 				HideUnexported:    opts.HideUnexported,
+				ShowConstants:     opts.ShowConstants,
 				DisableFields:     opts.DisableFields,
 				DisableMethods:    opts.DisableMethods,
 				DisableImplements: opts.DisableImplements,

@@ -145,6 +145,22 @@ func TestRender_HideUnexportedTypes(t *testing.T) {
 	}
 }
 
+func TestRender_ShowConstants(t *testing.T) {
+	d := build(t, fixturesDir+"/named-types")
+	got, err := New().Render(d, render.Options{ShowConstants: true, HideUnexported: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"+CodeA", "+CodeB", "+CodeAlias"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("Render(ShowConstants) = %q, want %q", got, want)
+		}
+	}
+	if strings.Contains(got, "codeHidden") {
+		t.Errorf("Render(ShowConstants, HideUnexported) = %q, want no codeHidden", got)
+	}
+}
+
 // TestDocSummary_EscapesQuotesAndBackslashes makes sure a doc comment
 // containing a double quote (as in the "implements" fixture's Labeled
 // interface: `same method name, "Name"`) cannot break out of the

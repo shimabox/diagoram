@@ -104,6 +104,15 @@ func renderClass(e *diagram.Entry, depth int, opt render.Options) []string {
 	if e.Kind == diagram.KindNamedType {
 		lines = append(lines, memberIndent+"<<"+diagram.NamedTypeLabel(e.NamedType)+">>")
 		lines = append(lines, memberIndent+"type "+formatType(e.NamedType.Underlying.String))
+		if opt.ShowConstants {
+			constants := e.NamedType.Constants
+			if opt.HideUnexported {
+				constants = diagram.ExportedConstants(constants)
+			}
+			for _, constant := range constants {
+				lines = append(lines, memberIndent+visibility(constant.Exported)+constant.Name)
+			}
+		}
 	}
 	for _, f := range fields {
 		lines = append(lines, memberIndent+fieldLine(f))

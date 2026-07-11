@@ -74,6 +74,12 @@ func TestRun(t *testing.T) {
 			wantStdoutHas: "--hide-unexported",
 		},
 		{
+			name:          "-h mentions --show-constants",
+			args:          []string{"-h"},
+			wantCode:      0,
+			wantStdoutHas: "--show-constants",
+		},
+		{
 			name:          "-h mentions --disable-fields",
 			args:          []string{"-h"},
 			wantCode:      0,

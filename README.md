@@ -89,6 +89,7 @@ docker run --rm -v "$PWD:/work" plantuml/plantuml -tsvg /work/diagram.puml
 | `--format=mermaid\|plantuml` | 出力形式を指定。デフォルトは `mermaid` |
 | `--show-external` | パッケージ依存図に外部パッケージを含める |
 | `--hide-unexported` | unexported の型、フィールド、メソッドを隠す |
+| `--show-constants` | 名前付き型に属する定数をクラス図に表示 |
 | `--disable-fields` | フィールドを描画しない |
 | `--disable-methods` | メソッドを描画しない |
 | `--disable-implements` | 推定した interface 実装関係を描画しない |

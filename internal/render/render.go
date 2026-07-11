@@ -13,6 +13,8 @@ type Options struct {
 	// HideUnexported drops unexported types, fields, and methods from the
 	// rendered diagram (--hide-unexported).
 	HideUnexported bool
+	// ShowConstants includes constants associated with named types.
+	ShowConstants bool
 	// DisableFields omits every Entry's fields from the rendered class
 	// body (--disable-fields).
 	DisableFields bool
