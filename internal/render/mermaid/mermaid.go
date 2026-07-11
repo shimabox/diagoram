@@ -103,7 +103,16 @@ func renderClass(e *diagram.Entry, depth int, opt render.Options) []string {
 	}
 	if e.Kind == diagram.KindNamedType {
 		lines = append(lines, memberIndent+"<<"+diagram.NamedTypeLabel(e.NamedType)+">>")
-		lines = append(lines, memberIndent+"type "+formatType(e.NamedType.Underlying.String))
+		if e.NamedType.Kind == gocode.NamedFunc {
+			if len(e.NamedType.Params) > 0 {
+				lines = append(lines, memberIndent+"params "+formattedTypeRefs(e.NamedType.Params))
+			}
+			if len(e.NamedType.Results) > 0 {
+				lines = append(lines, memberIndent+"returns "+formattedTypeRefs(e.NamedType.Results))
+			}
+		} else {
+			lines = append(lines, memberIndent+"type "+formatType(e.NamedType.Underlying.String))
+		}
 		if opt.ShowConstants {
 			constants := e.NamedType.Constants
 			if opt.HideUnexported {
@@ -122,6 +131,14 @@ func renderClass(e *diagram.Entry, depth int, opt render.Options) []string {
 	}
 	lines = append(lines, indent+"}")
 	return lines
+}
+
+func formattedTypeRefs(refs []gocode.TypeRef) string {
+	formatted := make([]string, len(refs))
+	for i, ref := range refs {
+		formatted[i] = formatType(ref.String)
+	}
+	return strings.Join(formatted, ", ")
 }
 
 // visibleMembers returns e's fields and methods after applying opt:

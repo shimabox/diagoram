@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"text/tabwriter"
+
+	"github.com/shimabox/diagoram/internal/gocode"
 )
 
 // SummaryOptions controls which counts and relationships Summary
@@ -196,6 +198,9 @@ func summaryDetails(e *Entry, ownerDir string, metas map[string]entrySummaryMeta
 		}
 	} else if e.Kind == KindNamedType {
 		if e.NamedType != nil {
+			if e.NamedType.Kind == gocode.NamedFunc {
+				parts = append(parts, "signature="+e.NamedType.Underlying.String)
+			}
 			constants := e.NamedType.Constants
 			if opt.HideUnexported {
 				constants = ExportedConstants(constants)
