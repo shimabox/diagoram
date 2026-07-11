@@ -353,6 +353,9 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		}
 	} else {
 		d := diagram.BuildWithModulePath(pkgs, modulePath)
+		if opts.HideUnexported {
+			d = diagram.FilterUnexported(d)
+		}
 		if len(opts.RelTargets) > 0 {
 			filtered, filterErr := diagram.FilterByRelTarget(d, opts.RelTargets, opts.RelTargetDepth)
 			if filterErr != nil {

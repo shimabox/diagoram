@@ -9,6 +9,7 @@ package diagram
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"go/ast"
 	"path"
 	"regexp"
 	"sort"
@@ -142,6 +143,9 @@ type Edge struct {
 	// several type references, ToCollection is true if any of them
 	// was a collection.
 	ToCollection bool
+	// Unexported reports that every source member producing this edge is
+	// unexported. Structural edges and edges with any exported source are false.
+	Unexported bool
 }
 
 // unsafeIDChar matches any rune that is not safe to use in a Mermaid
@@ -284,10 +288,10 @@ func BuildWithModulePath(pkgs []*gocode.Package, modulePath string) *Diagram {
 		for _, s := range pkg.Structs {
 			self := registry[entryKey{pkg.Dir, s.Name}]
 			for _, ref := range s.Embeds {
-				addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Embedding)
+				addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Embedding, !ast.IsExported(ref.Name))
 			}
 			for _, f := range s.Fields {
-				addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, f.Type, Dependency)
+				addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, f.Type, Dependency, !f.Exported)
 			}
 			for _, m := range s.Methods {
 				addMethodEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, m)
@@ -296,7 +300,7 @@ func BuildWithModulePath(pkgs []*gocode.Package, modulePath string) *Diagram {
 		for _, i := range pkg.Interfaces {
 			self := registry[entryKey{pkg.Dir, i.Name}]
 			for _, ref := range i.Embeds {
-				addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Embedding)
+				addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Embedding, !ast.IsExported(ref.Name))
 			}
 			for _, m := range i.Methods {
 				addMethodEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, m)
@@ -305,13 +309,13 @@ func BuildWithModulePath(pkgs []*gocode.Package, modulePath string) *Diagram {
 		for _, typ := range pkg.NamedTypes {
 			self := registry[entryKey{pkg.Dir, typ.Name}]
 			if typ.Kind != gocode.NamedFunc {
-				addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, typ.Underlying, Dependency)
+				addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, typ.Underlying, Dependency, false)
 			}
 			for _, ref := range typ.Params {
-				addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Dependency)
+				addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Dependency, false)
 			}
 			for _, ref := range typ.Results {
-				addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Dependency)
+				addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Dependency, false)
 			}
 			for _, m := range typ.Methods {
 				addMethodEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, m)
@@ -356,24 +360,24 @@ type edgeKey struct {
 // TypeRef of m.
 func addMethodEdges(edges map[edgeKey]*Edge, registry map[entryKey]*Entry, pkgByDir map[string]*gocode.Package, dirs []string, modulePath, fromDir, fromID string, m gocode.Method) {
 	for _, ref := range m.Params {
-		addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, fromDir, fromID, ref, Dependency)
+		addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, fromDir, fromID, ref, Dependency, !m.Exported)
 	}
 	for _, ref := range m.Results {
-		addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, fromDir, fromID, ref, Dependency)
+		addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, fromDir, fromID, ref, Dependency, !m.Exported)
 	}
 }
 
-func addTypeRefEdges(edges map[edgeKey]*Edge, registry map[entryKey]*Entry, pkgByDir map[string]*gocode.Package, dirs []string, modulePath, fromDir, fromID string, ref gocode.TypeRef, kind EdgeKind) {
-	addEdge(edges, registry, pkgByDir, dirs, modulePath, fromDir, fromID, ref, kind)
+func addTypeRefEdges(edges map[edgeKey]*Edge, registry map[entryKey]*Entry, pkgByDir map[string]*gocode.Package, dirs []string, modulePath, fromDir, fromID string, ref gocode.TypeRef, kind EdgeKind, unexported bool) {
+	addEdge(edges, registry, pkgByDir, dirs, modulePath, fromDir, fromID, ref, kind, unexported)
 	for _, related := range ref.Related {
-		addEdge(edges, registry, pkgByDir, dirs, modulePath, fromDir, fromID, related, Dependency)
+		addEdge(edges, registry, pkgByDir, dirs, modulePath, fromDir, fromID, related, Dependency, unexported)
 	}
 }
 
 // addEdge resolves ref against the package rooted at fromDir and, if
 // it names another known Entry (and is not a self-reference), records
 // or merges an edge of the given kind from fromID to it.
-func addEdge(edges map[edgeKey]*Edge, registry map[entryKey]*Entry, pkgByDir map[string]*gocode.Package, dirs []string, modulePath, fromDir, fromID string, ref gocode.TypeRef, kind EdgeKind) {
+func addEdge(edges map[edgeKey]*Edge, registry map[entryKey]*Entry, pkgByDir map[string]*gocode.Package, dirs []string, modulePath, fromDir, fromID string, ref gocode.TypeRef, kind EdgeKind, unexported bool) {
 	target, ok := resolveTypeRef(registry, pkgByDir, dirs, modulePath, fromDir, ref)
 	if !ok || target.ID == fromID {
 		return
@@ -381,6 +385,7 @@ func addEdge(edges map[edgeKey]*Edge, registry map[entryKey]*Entry, pkgByDir map
 
 	key := edgeKey{From: fromID, To: target.ID, Kind: kind}
 	if existing, ok := edges[key]; ok {
+		existing.Unexported = existing.Unexported && unexported
 		if ref.IsSlice || ref.IsMap {
 			existing.ToCollection = true
 		}
@@ -391,6 +396,7 @@ func addEdge(edges map[edgeKey]*Edge, registry map[entryKey]*Entry, pkgByDir map
 		To:           target.ID,
 		Kind:         kind,
 		ToCollection: ref.IsSlice || ref.IsMap,
+		Unexported:   unexported,
 	}
 }
 

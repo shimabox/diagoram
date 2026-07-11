@@ -22,7 +22,15 @@ func FilterUnexported(d *Diagram) *Diagram {
 		}
 	}
 	walk(d.Root)
-	return rebuildFiltered(d, keep)
+	filtered := rebuildFiltered(d, keep)
+	edges := make([]Edge, 0, len(filtered.Edges))
+	for _, edge := range filtered.Edges {
+		if !edge.Unexported {
+			edges = append(edges, edge)
+		}
+	}
+	filtered.Edges = edges
+	return filtered
 }
 
 // ExportedFields returns the subset of fields whose Exported is true,
