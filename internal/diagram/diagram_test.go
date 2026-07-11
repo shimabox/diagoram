@@ -1,6 +1,7 @@
 package diagram
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/shimabox/diagoram/internal/gocode"
@@ -251,5 +252,24 @@ func TestBuild_Empty(t *testing.T) {
 	}
 	if len(d.Edges) != 0 {
 		t.Errorf("Build(nil) Edges = %+v, want none", d.Edges)
+	}
+}
+
+func TestBuild_AssignsUniqueIDsAfterSanitizationCollision(t *testing.T) {
+	d := Build([]*gocode.Package{
+		{Dir: "foo-bar", Name: "foobar", Structs: []*gocode.Struct{{Name: "Item"}}},
+		{Dir: "foo_bar", Name: "foo_bar", Structs: []*gocode.Struct{{Name: "Item"}}},
+	})
+
+	first := findChild(d.Root, "foo-bar").Entries[0]
+	second := findChild(d.Root, "foo_bar").Entries[0]
+	if first.ID == second.ID {
+		t.Fatalf("colliding declarations received the same ID %q", first.ID)
+	}
+	if first.ID != "foo_bar_Item" {
+		t.Errorf("first ID = %q, want readable legacy ID %q", first.ID, "foo_bar_Item")
+	}
+	if !strings.HasPrefix(second.ID, "foo_bar_Item_") {
+		t.Errorf("second ID = %q, want stable collision suffix", second.ID)
 	}
 }

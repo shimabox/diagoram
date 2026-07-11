@@ -121,6 +121,24 @@ func TestRun(t *testing.T) {
 			wantCode:      1,
 			wantStderrHas: `unknown --format "graphviz". Valid formats: mermaid, plantuml`,
 		},
+		{
+			name:          "extra positional argument is rejected",
+			args:          []string{fixturesDir + "/basic", fixturesDir + "/interfaces"},
+			wantCode:      1,
+			wantStderrHas: "expected exactly one <dir> argument",
+		},
+		{
+			name:          "malformed include glob is rejected",
+			args:          []string{"--include=[", fixturesDir + "/basic"},
+			wantCode:      1,
+			wantStderrHas: "invalid include glob",
+		},
+		{
+			name:          "malformed exclude glob is rejected",
+			args:          []string{"--exclude=[", fixturesDir + "/basic"},
+			wantCode:      1,
+			wantStderrHas: "invalid exclude glob",
+		},
 	}
 
 	for _, tt := range tests {

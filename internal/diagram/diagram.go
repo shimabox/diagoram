@@ -7,6 +7,8 @@
 package diagram
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"path"
 	"regexp"
 	"sort"
@@ -143,6 +145,29 @@ func entryID(dir, name string) string {
 	return prefix + "_" + sanitizeID(name)
 }
 
+// uniqueEntryID preserves the traditional, readable ID when possible and
+// appends a stable suffix when two distinct declarations sanitize to the same
+// value. This keeps renderer identifiers unique without changing existing
+// output for the overwhelmingly common non-colliding case.
+func uniqueEntryID(dir, name string, used map[string]entryKey) string {
+	key := entryKey{Dir: dir, Name: name}
+	base := entryID(dir, name)
+	if previous, exists := used[base]; !exists || previous == key {
+		used[base] = key
+		return base
+	}
+
+	sum := sha256.Sum256([]byte(dir + "\x00" + name))
+	for bytes := 4; bytes <= len(sum); bytes++ {
+		candidate := base + "_" + hex.EncodeToString(sum[:bytes])
+		if previous, exists := used[candidate]; !exists || previous == key {
+			used[candidate] = key
+			return candidate
+		}
+	}
+	panic("sha256 collision while allocating diagram entry ID")
+}
+
 // entryKey identifies a declared type by the directory it lives in and
 // its name, for resolving TypeRefs to Entries.
 type entryKey struct {
@@ -168,6 +193,7 @@ func Build(pkgs []*gocode.Package) *Diagram {
 	nodes := map[string]*PackageNode{".": root, "": root}
 
 	registry := map[entryKey]*Entry{}
+	usedIDs := map[string]entryKey{}
 	pkgByDir := map[string]*gocode.Package{}
 	var dirs []string
 
@@ -181,7 +207,7 @@ func Build(pkgs []*gocode.Package) *Diagram {
 
 		for _, s := range pkg.Structs {
 			e := &Entry{
-				ID:      entryID(pkg.Dir, s.Name),
+				ID:      uniqueEntryID(pkg.Dir, s.Name, usedIDs),
 				Name:    s.Name,
 				Kind:    KindStruct,
 				Doc:     s.Doc,
@@ -193,7 +219,7 @@ func Build(pkgs []*gocode.Package) *Diagram {
 		}
 		for _, i := range pkg.Interfaces {
 			e := &Entry{
-				ID:      entryID(pkg.Dir, i.Name),
+				ID:      uniqueEntryID(pkg.Dir, i.Name, usedIDs),
 				Name:    i.Name,
 				Kind:    KindInterface,
 				Doc:     i.Doc,

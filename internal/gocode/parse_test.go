@@ -1,9 +1,32 @@
 package gocode
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestParseSkipsFilesFromAnotherPackage(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "a.go"), []byte("package sample\ntype Included struct{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "z_test.go"), []byte("package sample_test\ntype Excluded struct{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	pkgs, warnings := mustParse(t, dir, ParseOptions{Excludes: []string{"*.md"}})
+	if len(pkgs) != 1 || findStruct(pkgs[0], "Included") == nil {
+		t.Fatalf("parsed packages = %+v, want sample.Included", pkgs)
+	}
+	if findStruct(pkgs[0], "Excluded") != nil {
+		t.Fatal("declaration from external test package was merged into main package")
+	}
+	if len(warnings) != 1 || !strings.Contains(warnings[0].Error(), "does not match") {
+		t.Fatalf("warnings = %+v, want one package mismatch warning", warnings)
+	}
+}
 
 const fixturesDir = "../../testdata/fixtures"
 

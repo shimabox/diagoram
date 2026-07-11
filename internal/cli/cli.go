@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/shimabox/diagoram/internal/diagram"
@@ -177,10 +178,16 @@ func parseArgs(args []string, stderr io.Writer) (*Options, error) {
 		return nil
 	})
 	fs.Func("include", "only analyze files matching this glob (repeatable; default \"*.go\")", func(v string) error {
+		if _, err := filepath.Match(v, ""); err != nil {
+			return fmt.Errorf("invalid include glob %q: %w", v, err)
+		}
 		opts.Include = append(opts.Include, v)
 		return nil
 	})
 	fs.Func("exclude", "skip files matching this glob (repeatable; default \"*_test.go\")", func(v string) error {
+		if _, err := filepath.Match(v, ""); err != nil {
+			return fmt.Errorf("invalid exclude glob %q: %w", v, err)
+		}
 		opts.Exclude = append(opts.Exclude, v)
 		return nil
 	})
@@ -189,7 +196,12 @@ func parseArgs(args []string, stderr io.Writer) (*Options, error) {
 		return nil, err
 	}
 
-	if fs.NArg() > 0 {
+	if fs.NArg() > 1 {
+		err := fmt.Errorf("expected exactly one <dir> argument, got %d", fs.NArg())
+		fmt.Fprintf(stderr, "Error: %v\n\n%s", err, usage)
+		return nil, err
+	}
+	if fs.NArg() == 1 {
 		opts.Dir = fs.Arg(0)
 	}
 
