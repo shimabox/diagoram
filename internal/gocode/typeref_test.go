@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"reflect"
 	"testing"
 )
 
@@ -135,6 +136,31 @@ func TestTypeRefFromExpr(t *testing.T) {
 			}
 			if got.String != tt.want.String {
 				t.Errorf("String = %q, want %q", got.String, tt.want.String)
+			}
+		})
+	}
+}
+
+func TestTypeRefFromExprRelatedDependencies(t *testing.T) {
+	tests := []struct {
+		src  string
+		want []string
+	}{
+		{src: "map[Key]Value", want: []string{"Key"}},
+		{src: "Box[Item]", want: []string{"Item"}},
+		{src: "func(Input) Output", want: []string{"Input", "Output"}},
+		{src: "chan Event", want: []string{"Event"}},
+		{src: "struct{ Item Item }", want: []string{"Item"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.src, func(t *testing.T) {
+			got := typeRefFromExpr(parseTypeExpr(t, tt.src))
+			var names []string
+			for _, related := range got.Related {
+				names = append(names, related.Name)
+			}
+			if !reflect.DeepEqual(names, tt.want) {
+				t.Errorf("Related names = %v, want %v", names, tt.want)
 			}
 		})
 	}

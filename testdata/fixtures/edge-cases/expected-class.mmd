@@ -7,13 +7,19 @@ classDiagram
     class Item["Item"] {
         +ID int
     }
+    class Key["Key"] {
+        +Name string
+    }
     class Wrapper["Wrapper"] {
         +Ptr *Item
         +Slice Item[]
         +PtrSlice *Item[]
         +Matrix Array~3,int~
         +Lookup Map~string,*Item~
+        +ByKey Map~Key,*Item~
         +Anon struct
         +Handler func
+        +TypedHandler func
     }
     Wrapper ..> Item : *
+    Wrapper ..> Key

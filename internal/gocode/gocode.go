@@ -176,6 +176,9 @@ type TypeRef struct {
 	// text as possible (e.g. "[]*model.User"). It is always populated,
 	// even when Name is not.
 	String string
+	// Related holds additional named types nested inside this expression,
+	// such as a map key, generic argument, function parameter, or channel element.
+	Related []TypeRef
 }
 
 // Warning describes a file that Parse could not analyze, so that

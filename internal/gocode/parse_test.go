@@ -3,6 +3,7 @@ package gocode
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -387,7 +388,7 @@ func TestParseEdgeCasesFixture(t *testing.T) {
 		if !ok {
 			continue
 		}
-		if f.Type != want {
+		if !reflect.DeepEqual(f.Type, want) {
 			t.Errorf("field %q Type = %+v, want %+v", f.Name, f.Type, want)
 		}
 	}

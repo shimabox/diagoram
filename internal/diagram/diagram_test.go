@@ -228,6 +228,7 @@ func TestBuild_EdgeCases(t *testing.T) {
 
 	wantEdges := []Edge{
 		{From: "Wrapper", To: "Item", Kind: Dependency, ToCollection: true},
+		{From: "Wrapper", To: "Key", Kind: Dependency},
 	}
 	if len(d.Edges) != len(wantEdges) {
 		t.Fatalf("Edges = %+v, want %+v (Wrapper->Item deduplicated; Box's T must not resolve)", d.Edges, wantEdges)

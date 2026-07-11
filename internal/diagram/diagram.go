@@ -284,10 +284,10 @@ func BuildWithModulePath(pkgs []*gocode.Package, modulePath string) *Diagram {
 		for _, s := range pkg.Structs {
 			self := registry[entryKey{pkg.Dir, s.Name}]
 			for _, ref := range s.Embeds {
-				addEdge(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Embedding)
+				addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Embedding)
 			}
 			for _, f := range s.Fields {
-				addEdge(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, f.Type, Dependency)
+				addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, f.Type, Dependency)
 			}
 			for _, m := range s.Methods {
 				addMethodEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, m)
@@ -296,7 +296,7 @@ func BuildWithModulePath(pkgs []*gocode.Package, modulePath string) *Diagram {
 		for _, i := range pkg.Interfaces {
 			self := registry[entryKey{pkg.Dir, i.Name}]
 			for _, ref := range i.Embeds {
-				addEdge(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Embedding)
+				addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Embedding)
 			}
 			for _, m := range i.Methods {
 				addMethodEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, m)
@@ -305,13 +305,13 @@ func BuildWithModulePath(pkgs []*gocode.Package, modulePath string) *Diagram {
 		for _, typ := range pkg.NamedTypes {
 			self := registry[entryKey{pkg.Dir, typ.Name}]
 			if typ.Kind != gocode.NamedFunc {
-				addEdge(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, typ.Underlying, Dependency)
+				addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, typ.Underlying, Dependency)
 			}
 			for _, ref := range typ.Params {
-				addEdge(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Dependency)
+				addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Dependency)
 			}
 			for _, ref := range typ.Results {
-				addEdge(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Dependency)
+				addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Dependency)
 			}
 			for _, m := range typ.Methods {
 				addMethodEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, m)
@@ -356,10 +356,17 @@ type edgeKey struct {
 // TypeRef of m.
 func addMethodEdges(edges map[edgeKey]*Edge, registry map[entryKey]*Entry, pkgByDir map[string]*gocode.Package, dirs []string, modulePath, fromDir, fromID string, m gocode.Method) {
 	for _, ref := range m.Params {
-		addEdge(edges, registry, pkgByDir, dirs, modulePath, fromDir, fromID, ref, Dependency)
+		addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, fromDir, fromID, ref, Dependency)
 	}
 	for _, ref := range m.Results {
-		addEdge(edges, registry, pkgByDir, dirs, modulePath, fromDir, fromID, ref, Dependency)
+		addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, fromDir, fromID, ref, Dependency)
+	}
+}
+
+func addTypeRefEdges(edges map[edgeKey]*Edge, registry map[entryKey]*Entry, pkgByDir map[string]*gocode.Package, dirs []string, modulePath, fromDir, fromID string, ref gocode.TypeRef, kind EdgeKind) {
+	addEdge(edges, registry, pkgByDir, dirs, modulePath, fromDir, fromID, ref, kind)
+	for _, related := range ref.Related {
+		addEdge(edges, registry, pkgByDir, dirs, modulePath, fromDir, fromID, related, Dependency)
 	}
 }
 
