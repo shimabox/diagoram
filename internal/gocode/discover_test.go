@@ -1,11 +1,30 @@
 package gocode
 
 import (
+	"go/build/constraint"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 )
+
+func TestExpressionRequiresIgnore(t *testing.T) {
+	tests := map[string]bool{
+		"//go:build ignore":          true,
+		"//go:build ignore && tool":  true,
+		"//go:build ignore || linux": false,
+		"//go:build !ignore":         false,
+	}
+	for line, want := range tests {
+		expr, err := constraint.Parse(line)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := expressionRequiresIgnore(expr); got != want {
+			t.Errorf("expressionRequiresIgnore(%q) = %v, want %v", line, got, want)
+		}
+	}
+}
 
 // writeFiles creates each key in files (a path relative to dir) with
 // its value as content, creating parent directories as needed.
@@ -154,6 +173,7 @@ func TestDiscoverDirsBuildContext(t *testing.T) {
 	dir := t.TempDir()
 	writeFiles(t, dir, map[string]string{
 		"base.go":           "package target\n",
+		"ignored.go":        "//go:build ignore\n\npackage target\n",
 		"target_linux.go":   "package target\n",
 		"target_windows.go": "package target\n",
 		"tagged.go":         "//go:build custom\n\npackage target\n",
@@ -165,7 +185,7 @@ func TestDiscoverDirsBuildContext(t *testing.T) {
 		t.Fatalf("discoverDirs union: %v", err)
 	}
 	if len(union) != 1 || len(union[0].Files) != 5 {
-		t.Fatalf("union files = %+v, want all build variants", union)
+		t.Fatalf("union files = %+v, want all variants except build ignore", union)
 	}
 
 	selected, err := discoverDirs(dir, ParseOptions{BuildContext: &BuildContext{
@@ -176,6 +196,25 @@ func TestDiscoverDirsBuildContext(t *testing.T) {
 	}
 	want := []dirFiles{{Dir: ".", Files: []string{"base.go", "tagged.go", "target_linux.go"}}}
 	assertDirFiles(t, selected, want)
+
+	withIgnore, err := discoverDirs(dir, ParseOptions{BuildContext: &BuildContext{
+		GOOS: "linux", GOARCH: "amd64", Tags: []string{"ignore"},
+	}})
+	if err != nil {
+		t.Fatalf("discoverDirs ignore tag: %v", err)
+	}
+	if len(withIgnore) != 1 || !containsString(withIgnore[0].Files, "ignored.go") {
+		t.Fatalf("files with explicit ignore tag = %+v, want ignored.go", withIgnore)
+	}
+}
+
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 func assertDirFiles(t *testing.T, got []dirFiles, want []dirFiles) {

@@ -1,7 +1,9 @@
 package gocode
 
 import (
+	"bufio"
 	"go/build"
+	"go/build/constraint"
 	"io/fs"
 	"os"
 	pathpkg "path"
@@ -94,6 +96,15 @@ func discoverDirs(rootDir string, opt ParseOptions) ([]dirFiles, error) {
 			if matchAny(excludes, name) {
 				continue
 			}
+			if opt.BuildContext == nil {
+				ignored, err := requiresIgnoreBuildTag(filepath.Join(path, name))
+				if err != nil {
+					return err
+				}
+				if ignored {
+					continue
+				}
+			}
 			matches, err := matchBuildContext(path, name, opt.BuildContext)
 			if err != nil {
 				return err
@@ -123,6 +134,46 @@ func discoverDirs(rootDir string, opt ParseOptions) ([]dirFiles, error) {
 
 	sort.Slice(results, func(i, j int) bool { return results[i].Dir < results[j].Dir })
 	return results, nil
+}
+
+func requiresIgnoreBuildTag(filename string) (bool, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return false, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "//") {
+			if constraint.IsGoBuild(line) || constraint.IsPlusBuild(line) {
+				expr, err := constraint.Parse(line)
+				if err != nil {
+					return false, err
+				}
+				if expressionRequiresIgnore(expr) {
+					return true, nil
+				}
+			}
+			continue
+		}
+		break
+	}
+	return false, scanner.Err()
+}
+
+func expressionRequiresIgnore(expr constraint.Expr) bool {
+	switch e := expr.(type) {
+	case *constraint.TagExpr:
+		return e.Tag == "ignore"
+	case *constraint.AndExpr:
+		return expressionRequiresIgnore(e.X) || expressionRequiresIgnore(e.Y)
+	case *constraint.OrExpr:
+		return expressionRequiresIgnore(e.X) && expressionRequiresIgnore(e.Y)
+	default:
+		return false
+	}
 }
 
 func matchBuildContext(dir, name string, selected *BuildContext) (bool, error) {
