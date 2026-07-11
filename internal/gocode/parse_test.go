@@ -64,13 +64,21 @@ func TestParseNamedTypes(t *testing.T) {
 	}
 	pkg := pkgs[0]
 	for name, kind := range map[string]NamedTypeKind{
-		"Code": NamedScalar, "Vector": NamedArray, "Items": NamedSlice,
+		"Code": NamedScalar, "Mode": NamedScalar, "Vector": NamedArray, "Items": NamedSlice,
 		"Index": NamedMap, "Transform": NamedFunc, "ItemAlias": NamedAlias,
 	} {
 		typ := findNamedType(pkg, name)
 		if typ == nil || typ.Kind != kind {
 			t.Errorf("named type %s = %+v, want kind %v", name, typ, kind)
 		}
+	}
+	code := findNamedType(pkg, "Code")
+	if code == nil || len(code.Constants) != 4 {
+		t.Fatalf("Code constants = %+v, want CodeA, CodeB, codeHidden, CodeAlias", code)
+	}
+	mode := findNamedType(pkg, "Mode")
+	if mode == nil || len(mode.Constants) != 2 {
+		t.Fatalf("Mode constants = %+v, want ModeA and ModeB", mode)
 	}
 	if got := findNamedType(pkg, "Items"); got == nil || len(got.Methods) != 1 || got.Methods[0].Name != "Len" {
 		t.Errorf("Items methods = %+v, want Len", got)

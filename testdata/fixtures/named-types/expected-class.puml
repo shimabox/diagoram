@@ -15,6 +15,9 @@
         type : []Item
         +Len() : int
     }
+    class "Mode" as Mode <<type>> {
+        type : int
+    }
     interface "Sizer" as Sizer {
         +Len() : int
     }

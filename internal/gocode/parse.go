@@ -81,6 +81,8 @@ func parseDir(d dirFiles) (*Package, []Warning) {
 
 	pkg := &Package{Dir: d.Dir, Name: pkgName}
 	methodsByReceiver := map[string][]Method{}
+	constantsByType := map[string][]Constant{}
+	var pendingConstants []pendingConstant
 	importSet := map[Import]bool{}
 
 	for _, file := range files {
@@ -91,6 +93,10 @@ func parseDir(d dirFiles) (*Package, []Warning) {
 		for recv, methods := range fd.Methods {
 			methodsByReceiver[recv] = append(methodsByReceiver[recv], methods...)
 		}
+		for typeName, constants := range fd.Constants {
+			constantsByType[typeName] = append(constantsByType[typeName], constants...)
+		}
+		pendingConstants = append(pendingConstants, fd.PendingConstants...)
 
 		for _, spec := range file.Imports {
 			path, err := strconv.Unquote(spec.Path.Value)
@@ -110,7 +116,9 @@ func parseDir(d dirFiles) (*Package, []Warning) {
 	}
 	for _, typ := range pkg.NamedTypes {
 		typ.Methods = methodsByReceiver[typ.Name]
+		typ.Constants = constantsByType[typ.Name]
 	}
+	resolvePendingConstants(pkg.NamedTypes, constantsByType, pendingConstants)
 
 	pkg.Imports = make([]Import, 0, len(importSet))
 	for imp := range importSet {
@@ -124,4 +132,34 @@ func parseDir(d dirFiles) (*Package, []Warning) {
 	})
 
 	return pkg, warnings
+}
+
+func resolvePendingConstants(namedTypes []*NamedType, constantsByType map[string][]Constant, pending []pendingConstant) {
+	typeByConstant := map[string]string{}
+	for typeName, constants := range constantsByType {
+		for _, constant := range constants {
+			typeByConstant[constant.Name] = typeName
+		}
+	}
+	for len(pending) > 0 {
+		var unresolved []pendingConstant
+		progress := false
+		for _, item := range pending {
+			typeName, ok := typeByConstant[item.RefName]
+			if !ok {
+				unresolved = append(unresolved, item)
+				continue
+			}
+			constantsByType[typeName] = append(constantsByType[typeName], item.Constant)
+			typeByConstant[item.Constant.Name] = typeName
+			progress = true
+		}
+		if !progress {
+			break
+		}
+		pending = unresolved
+	}
+	for _, typ := range namedTypes {
+		typ.Constants = constantsByType[typ.Name]
+	}
 }

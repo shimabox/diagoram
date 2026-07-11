@@ -69,6 +69,14 @@ type NamedType struct {
 	Params     []TypeRef
 	Results    []TypeRef
 	Methods    []Method
+	Constants  []Constant
+}
+
+// Constant is a constant associated with a named scalar type.
+type Constant struct {
+	Name     string
+	Doc      string
+	Exported bool
 }
 
 // Import is a single import declaration.

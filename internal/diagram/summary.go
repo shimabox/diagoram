@@ -194,7 +194,24 @@ func summaryDetails(e *Entry, ownerDir string, metas map[string]entrySummaryMeta
 		if len(counts) > 0 {
 			parts = append(parts, strings.Join(counts, " "))
 		}
-	} else if (e.Kind == KindInterface || e.Kind == KindNamedType) && !opt.DisableMethods {
+	} else if e.Kind == KindNamedType {
+		if e.NamedType != nil {
+			constants := e.NamedType.Constants
+			if opt.HideUnexported {
+				constants = ExportedConstants(constants)
+			}
+			if len(constants) > 0 {
+				parts = append(parts, "constants="+strconv.Itoa(len(constants)))
+			}
+		}
+		if !opt.DisableMethods {
+			methods := e.Methods
+			if opt.HideUnexported {
+				methods = ExportedMethods(methods)
+			}
+			parts = append(parts, "methods="+strconv.Itoa(len(methods)))
+		}
+	} else if e.Kind == KindInterface && !opt.DisableMethods {
 		methods := e.Methods
 		if opt.HideUnexported {
 			methods = ExportedMethods(methods)

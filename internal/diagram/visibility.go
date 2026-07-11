@@ -50,3 +50,14 @@ func ExportedMethods(methods []gocode.Method) []gocode.Method {
 	}
 	return out
 }
+
+// ExportedConstants returns the subset of constants whose names are exported.
+func ExportedConstants(constants []gocode.Constant) []gocode.Constant {
+	var out []gocode.Constant
+	for _, constant := range constants {
+		if constant.Exported {
+			out = append(out, constant)
+		}
+	}
+	return out
+}

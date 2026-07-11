@@ -19,6 +19,10 @@ classDiagram
         type Item[]
         +Len() int
     }
+    class Mode["Mode"] {
+        <<type>>
+        type int
+    }
     class Sizer["Sizer"] {
         <<interface>>
         +Len() int

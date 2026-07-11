@@ -10,21 +10,32 @@ import (
 // plus the receiver-bearing methods that must later be matched to
 // their struct by name.
 type fileDecls struct {
-	Structs    []*Struct
-	Interfaces []*Interface
-	NamedTypes []*NamedType
-	Methods    map[string][]Method // receiver type name -> methods
+	Structs          []*Struct
+	Interfaces       []*Interface
+	NamedTypes       []*NamedType
+	Methods          map[string][]Method // receiver type name -> methods
+	Constants        map[string][]Constant
+	PendingConstants []pendingConstant
+}
+
+type pendingConstant struct {
+	Constant Constant
+	RefName  string
 }
 
 // collectDecls walks file's top-level declarations and extracts
 // struct/interface/slice/map/function type specs and receiver methods. Declaration order
 // within the file is preserved.
 func collectDecls(file *ast.File) fileDecls {
-	fd := fileDecls{Methods: map[string][]Method{}}
+	fd := fileDecls{Methods: map[string][]Method{}, Constants: map[string][]Constant{}}
 
 	for _, decl := range file.Decls {
 		switch d := decl.(type) {
 		case *ast.GenDecl:
+			if d.Tok == token.CONST {
+				collectConstants(d, &fd)
+				continue
+			}
 			if d.Tok != token.TYPE {
 				continue
 			}
@@ -75,6 +86,60 @@ func collectDecls(file *ast.File) fileDecls {
 	}
 
 	return fd
+}
+
+func collectConstants(decl *ast.GenDecl, fd *fileDecls) {
+	inheritedType := ""
+	inheritedRef := ""
+	for _, spec := range decl.Specs {
+		valueSpec, ok := spec.(*ast.ValueSpec)
+		if !ok {
+			continue
+		}
+
+		typeName := ""
+		defaultRef := ""
+		if ident, ok := valueSpec.Type.(*ast.Ident); ok {
+			typeName = ident.Name
+			inheritedType = typeName
+			inheritedRef = ""
+		} else if len(valueSpec.Values) == 0 {
+			typeName = inheritedType
+			defaultRef = inheritedRef
+		} else {
+			inheritedType = ""
+			inheritedRef = ""
+			if hintType, hintRef := constantTypeHint(valueSpec.Values[0]); hintType != "" || hintRef != "" {
+				inheritedType, inheritedRef = hintType, hintRef
+			}
+		}
+
+		for i, name := range valueSpec.Names {
+			constant := Constant{Name: name.Name, Doc: docFirstLine(valueSpec.Doc), Exported: ast.IsExported(name.Name)}
+			resolvedType := typeName
+			refName := defaultRef
+			if resolvedType == "" && i < len(valueSpec.Values) {
+				resolvedType, refName = constantTypeHint(valueSpec.Values[i])
+			}
+			if resolvedType != "" {
+				fd.Constants[resolvedType] = append(fd.Constants[resolvedType], constant)
+			} else if refName != "" {
+				fd.PendingConstants = append(fd.PendingConstants, pendingConstant{Constant: constant, RefName: refName})
+			}
+		}
+	}
+}
+
+func constantTypeHint(expr ast.Expr) (typeName, refName string) {
+	switch e := expr.(type) {
+	case *ast.CallExpr:
+		if ident, ok := e.Fun.(*ast.Ident); ok {
+			return ident.Name, ""
+		}
+	case *ast.Ident:
+		return "", e.Name
+	}
+	return "", ""
 }
 
 func namedTypeFromSpec(name, doc string, kind NamedTypeKind, expr ast.Expr) *NamedType {
