@@ -99,6 +99,9 @@ docker run --rm -v "$PWD:/work" plantuml/plantuml -tsvg /work/diagram.puml
 | `--include='glob'` | 対象ファイルのパターンを指定。複数指定可 |
 | `--exclude='glob'` | 除外ファイルのパターンを指定。複数指定可 |
 | `--exclude-dir='glob'` | 除外ディレクトリの相対パスを指定。複数指定可 |
+| `--goos=GOOS` | 対象GOOSのbuild constraintを適用 |
+| `--goarch=GOARCH` | 対象GOARCHのbuild constraintを適用 |
+| `--build-tag=tag` | build tagを追加。複数指定可 |
 | `-h`, `--help` | ヘルプを表示 |
 | `-v`, `--version` | バージョンを表示 |
 

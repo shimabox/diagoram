@@ -24,6 +24,16 @@ type ParseOptions struct {
 	// ExcludeDirs is a list of slash-separated glob patterns matched
 	// against directory paths relative to the analysis root.
 	ExcludeDirs []string
+	// BuildContext enables build-constraint and filename-suffix filtering.
+	// Nil keeps the source-union behavior and analyzes every matching file.
+	BuildContext *BuildContext
+}
+
+// BuildContext selects files for a target Go build environment.
+type BuildContext struct {
+	GOOS   string
+	GOARCH string
+	Tags   []string
 }
 
 // Package is one analyzed Go package: all the declarations gathered

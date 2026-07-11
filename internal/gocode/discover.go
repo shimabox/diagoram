@@ -1,6 +1,7 @@
 package gocode
 
 import (
+	"go/build"
 	"io/fs"
 	"os"
 	pathpkg "path"
@@ -93,6 +94,13 @@ func discoverDirs(rootDir string, opt ParseOptions) ([]dirFiles, error) {
 			if matchAny(excludes, name) {
 				continue
 			}
+			matches, err := matchBuildContext(path, name, opt.BuildContext)
+			if err != nil {
+				return err
+			}
+			if !matches {
+				continue
+			}
 			files = append(files, name)
 		}
 		if len(files) == 0 {
@@ -115,6 +123,21 @@ func discoverDirs(rootDir string, opt ParseOptions) ([]dirFiles, error) {
 
 	sort.Slice(results, func(i, j int) bool { return results[i].Dir < results[j].Dir })
 	return results, nil
+}
+
+func matchBuildContext(dir, name string, selected *BuildContext) (bool, error) {
+	if selected == nil {
+		return true, nil
+	}
+	context := build.Default
+	if selected.GOOS != "" {
+		context.GOOS = selected.GOOS
+	}
+	if selected.GOARCH != "" {
+		context.GOARCH = selected.GOARCH
+	}
+	context.BuildTags = append([]string(nil), selected.Tags...)
+	return context.MatchFile(dir, name)
 }
 
 func matchAnyPath(patterns []string, name string) bool {

@@ -128,6 +128,12 @@ func TestRun(t *testing.T) {
 			wantStdoutHas: "--exclude-dir",
 		},
 		{
+			name:          "-h mentions build context flags",
+			args:          []string{"-h"},
+			wantCode:      0,
+			wantStdoutHas: "--build-tag",
+		},
+		{
 			name:          "unknown --format value reports candidates",
 			args:          []string{"--format=graphviz", fixturesDir + "/basic"},
 			wantCode:      1,
@@ -156,6 +162,12 @@ func TestRun(t *testing.T) {
 			args:          []string{"--exclude-dir=[", fixturesDir + "/basic"},
 			wantCode:      1,
 			wantStderrHas: "invalid exclude-dir glob",
+		},
+		{
+			name:          "empty build tag is rejected",
+			args:          []string{"--build-tag=", fixturesDir + "/basic"},
+			wantCode:      1,
+			wantStderrHas: "build tag must not be empty",
 		},
 	}
 

@@ -83,6 +83,12 @@ Options:
 	  --exclude-dir='glob'
 	                      Skip directories whose slash-separated path,
 	                      relative to <dir>, matches glob (repeatable)
+	  --goos=GOOS         Analyze files selected for GOOS. Enables build
+	                      constraint filtering.
+	  --goarch=GOARCH     Analyze files selected for GOARCH. Enables build
+	                      constraint filtering.
+	  --build-tag=tag     Add a satisfied build tag (repeatable). Enables
+	                      build constraint filtering.
   -h, --help          Show this help message and exit
   -v, --version       Show version information and exit
 `
@@ -149,6 +155,11 @@ type Options struct {
 	Exclude []string
 	// ExcludeDirs contains relative directory globs passed via --exclude-dir.
 	ExcludeDirs []string
+	// GOOS and GOARCH select an explicit build context.
+	GOOS   string
+	GOARCH string
+	// BuildTags contains repeatable --build-tag values.
+	BuildTags []string
 	// Dir is the directory to analyze.
 	Dir string
 }
@@ -207,6 +218,16 @@ func parseArgs(args []string, stderr io.Writer) (*Options, error) {
 			return fmt.Errorf("invalid exclude-dir glob %q: %w", v, err)
 		}
 		opts.ExcludeDirs = append(opts.ExcludeDirs, v)
+		return nil
+	})
+	fs.StringVar(&opts.GOOS, "goos", "", "select files for this GOOS")
+	fs.StringVar(&opts.GOARCH, "goarch", "", "select files for this GOARCH")
+	fs.Func("build-tag", "add a satisfied build tag (repeatable)", func(v string) error {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			return fmt.Errorf("build tag must not be empty")
+		}
+		opts.BuildTags = append(opts.BuildTags, v)
 		return nil
 	})
 
@@ -300,11 +321,15 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	pkgs, warnings, err := gocode.Parse(opts.Dir, gocode.ParseOptions{
+	parseOptions := gocode.ParseOptions{
 		Includes:    opts.Include,
 		Excludes:    opts.Exclude,
 		ExcludeDirs: opts.ExcludeDirs,
-	})
+	}
+	if opts.GOOS != "" || opts.GOARCH != "" || len(opts.BuildTags) > 0 {
+		parseOptions.BuildContext = &gocode.BuildContext{GOOS: opts.GOOS, GOARCH: opts.GOARCH, Tags: opts.BuildTags}
+	}
+	pkgs, warnings, err := gocode.Parse(opts.Dir, parseOptions)
 	if err != nil {
 		fmt.Fprintf(stderr, "Error: cannot analyze %q: %v\n", opts.Dir, err)
 		return 1

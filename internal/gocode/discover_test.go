@@ -150,6 +150,34 @@ func TestDiscoverDirsCustomDirectoryExcludes(t *testing.T) {
 	assertDirFiles(t, got, want)
 }
 
+func TestDiscoverDirsBuildContext(t *testing.T) {
+	dir := t.TempDir()
+	writeFiles(t, dir, map[string]string{
+		"base.go":           "package target\n",
+		"target_linux.go":   "package target\n",
+		"target_windows.go": "package target\n",
+		"tagged.go":         "//go:build custom\n\npackage target\n",
+		"other_tagged.go":   "//go:build other\n\npackage target\n",
+	})
+
+	union, err := discoverDirs(dir, ParseOptions{})
+	if err != nil {
+		t.Fatalf("discoverDirs union: %v", err)
+	}
+	if len(union) != 1 || len(union[0].Files) != 5 {
+		t.Fatalf("union files = %+v, want all build variants", union)
+	}
+
+	selected, err := discoverDirs(dir, ParseOptions{BuildContext: &BuildContext{
+		GOOS: "linux", GOARCH: "amd64", Tags: []string{"custom"},
+	}})
+	if err != nil {
+		t.Fatalf("discoverDirs selected: %v", err)
+	}
+	want := []dirFiles{{Dir: ".", Files: []string{"base.go", "tagged.go", "target_linux.go"}}}
+	assertDirFiles(t, selected, want)
+}
+
 func assertDirFiles(t *testing.T, got []dirFiles, want []dirFiles) {
 	t.Helper()
 	if len(got) != len(want) {
