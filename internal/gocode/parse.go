@@ -82,6 +82,7 @@ func parseDir(d dirFiles) (*Package, []Warning) {
 
 	pkg := &Package{Dir: d.Dir, Name: pkgName}
 	methodsByReceiver := map[string][]Method{}
+	methodSets := map[string]map[string]bool{}
 	constantsByType := map[string][]Constant{}
 	var pendingConstants []pendingConstant
 	importSet := map[Import]bool{}
@@ -100,7 +101,16 @@ func parseDir(d dirFiles) (*Package, []Warning) {
 			}
 		}
 		for recv, methods := range fd.Methods {
-			methodsByReceiver[recv] = append(methodsByReceiver[recv], methods...)
+			if methodSets[recv] == nil {
+				methodSets[recv] = map[string]bool{}
+			}
+			for _, method := range methods {
+				key := signatureKey(method.Name, method.Params, method.Results)
+				if !methodSets[recv][key] {
+					methodSets[recv][key] = true
+					methodsByReceiver[recv] = append(methodsByReceiver[recv], method)
+				}
+			}
 		}
 		for typeName, constants := range fd.Constants {
 			constantsByType[typeName] = append(constantsByType[typeName], constants...)
@@ -144,14 +154,18 @@ func parseDir(d dirFiles) (*Package, []Warning) {
 }
 
 func functionSignatureKey(function Function) string {
+	return signatureKey(function.Name, function.Params, function.Results)
+}
+
+func signatureKey(name string, params, results []TypeRef) string {
 	var key strings.Builder
-	key.WriteString(function.Name)
-	for _, ref := range function.Params {
+	key.WriteString(name)
+	for _, ref := range params {
 		key.WriteByte('\x00')
 		key.WriteString(ref.String)
 	}
 	key.WriteByte('\x01')
-	for _, ref := range function.Results {
+	for _, ref := range results {
 		key.WriteByte('\x00')
 		key.WriteString(ref.String)
 	}

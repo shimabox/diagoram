@@ -29,10 +29,14 @@ func TestParseSkipsFilesFromAnotherPackage(t *testing.T) {
 	}
 }
 
-func TestParseDeduplicatesFunctionsAcrossBuildVariants(t *testing.T) {
+func TestParseDeduplicatesDeclarationsAcrossBuildVariants(t *testing.T) {
 	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "sample.go"), []byte("package sample\ntype Sample struct{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	for _, name := range []string{"sum_linux.go", "sum_windows.go"} {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte("package sample\nfunc Sum(value int) int { return value }\n"), 0o600); err != nil {
+		source := "package sample\nfunc Sum(value int) int { return value }\nfunc (Sample) Value() int { return 1 }\n"
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(source), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -42,6 +46,10 @@ func TestParseDeduplicatesFunctionsAcrossBuildVariants(t *testing.T) {
 	}
 	if len(pkgs[0].Functions) != 1 || pkgs[0].Functions[0].Name != "Sum" {
 		t.Fatalf("functions = %+v, want one deduplicated Sum", pkgs[0].Functions)
+	}
+	sample := findStruct(pkgs[0], "Sample")
+	if sample == nil || len(sample.Methods) != 1 || sample.Methods[0].Name != "Value" {
+		t.Fatalf("Sample methods = %+v, want one deduplicated Value", sample)
 	}
 }
 
