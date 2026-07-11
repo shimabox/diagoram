@@ -293,14 +293,14 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	for _, w := range warnings {
 		fmt.Fprintf(stderr, "Warning: %s\n", w.Error())
 	}
+	modulePath, modErr := diagram.ReadModulePath(opts.Dir)
+	if modErr != nil {
+		fmt.Fprintf(stderr, "Error: cannot read go.mod in %q: %v\n", opts.Dir, modErr)
+		return 1
+	}
 
 	var out string
 	if opts.PackageDiagram {
-		modulePath, modErr := diagram.ReadModulePath(opts.Dir)
-		if modErr != nil {
-			fmt.Fprintf(stderr, "Error: cannot read go.mod in %q: %v\n", opts.Dir, modErr)
-			return 1
-		}
 		g := diagram.BuildPackageGraph(pkgs, modulePath, opts.ShowExternal)
 		out, err = renderer.RenderPackageGraph(g, render.Options{})
 		if err != nil {
@@ -308,7 +308,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			return 1
 		}
 	} else {
-		d := diagram.Build(pkgs)
+		d := diagram.BuildWithModulePath(pkgs, modulePath)
 		if len(opts.RelTargets) > 0 {
 			filtered, filterErr := diagram.FilterByRelTarget(d, opts.RelTargets, opts.RelTargetDepth)
 			if filterErr != nil {

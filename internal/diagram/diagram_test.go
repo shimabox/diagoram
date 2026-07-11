@@ -273,3 +273,24 @@ func TestBuild_AssignsUniqueIDsAfterSanitizationCollision(t *testing.T) {
 		t.Errorf("second ID = %q, want stable collision suffix", second.ID)
 	}
 }
+
+func TestBuildWithModulePath_ResolvesRootPackageImport(t *testing.T) {
+	root := &gocode.Package{
+		Dir: ".", Name: "semver",
+		Structs: []*gocode.Struct{{Name: "Version"}},
+	}
+	wrapper := &gocode.Package{
+		Dir: "wrapper", Name: "wrapper",
+		Imports: []gocode.Import{{Path: "example.com/semver/v3"}},
+		NamedTypes: []*gocode.NamedType{{
+			Name: "VersionAlias", Kind: gocode.NamedAlias,
+			Underlying: gocode.TypeRef{PkgName: "semver", Name: "Version", String: "semver.Version"},
+		}},
+	}
+
+	d := BuildWithModulePath([]*gocode.Package{root, wrapper}, "example.com/semver/v3")
+	want := Edge{From: "wrapper_VersionAlias", To: "Version", Kind: Dependency}
+	if len(d.Edges) != 1 || d.Edges[0] != want {
+		t.Fatalf("Edges = %+v, want %+v", d.Edges, []Edge{want})
+	}
+}

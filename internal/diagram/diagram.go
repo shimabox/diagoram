@@ -216,6 +216,13 @@ type entryKey struct {
 // edges are never produced, and duplicate (From, To, Kind) edges are
 // merged into one.
 func Build(pkgs []*gocode.Package) *Diagram {
+	return BuildWithModulePath(pkgs, "")
+}
+
+// BuildWithModulePath builds a class diagram and uses modulePath to resolve
+// imports to analyzed packages exactly, including the module's root package.
+// An empty modulePath preserves Build's suffix-based fallback behavior.
+func BuildWithModulePath(pkgs []*gocode.Package, modulePath string) *Diagram {
 	root := &PackageNode{}
 	nodes := map[string]*PackageNode{".": root, "": root}
 
@@ -273,42 +280,42 @@ func Build(pkgs []*gocode.Package) *Diagram {
 		for _, s := range pkg.Structs {
 			self := registry[entryKey{pkg.Dir, s.Name}]
 			for _, ref := range s.Embeds {
-				addEdge(edges, registry, pkgByDir, dirs, pkg.Dir, self.ID, ref, Embedding)
+				addEdge(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Embedding)
 			}
 			for _, f := range s.Fields {
-				addEdge(edges, registry, pkgByDir, dirs, pkg.Dir, self.ID, f.Type, Dependency)
+				addEdge(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, f.Type, Dependency)
 			}
 			for _, m := range s.Methods {
-				addMethodEdges(edges, registry, pkgByDir, dirs, pkg.Dir, self.ID, m)
+				addMethodEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, m)
 			}
 		}
 		for _, i := range pkg.Interfaces {
 			self := registry[entryKey{pkg.Dir, i.Name}]
 			for _, ref := range i.Embeds {
-				addEdge(edges, registry, pkgByDir, dirs, pkg.Dir, self.ID, ref, Embedding)
+				addEdge(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Embedding)
 			}
 			for _, m := range i.Methods {
-				addMethodEdges(edges, registry, pkgByDir, dirs, pkg.Dir, self.ID, m)
+				addMethodEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, m)
 			}
 		}
 		for _, typ := range pkg.NamedTypes {
 			self := registry[entryKey{pkg.Dir, typ.Name}]
 			if typ.Kind != gocode.NamedFunc {
-				addEdge(edges, registry, pkgByDir, dirs, pkg.Dir, self.ID, typ.Underlying, Dependency)
+				addEdge(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, typ.Underlying, Dependency)
 			}
 			for _, ref := range typ.Params {
-				addEdge(edges, registry, pkgByDir, dirs, pkg.Dir, self.ID, ref, Dependency)
+				addEdge(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Dependency)
 			}
 			for _, ref := range typ.Results {
-				addEdge(edges, registry, pkgByDir, dirs, pkg.Dir, self.ID, ref, Dependency)
+				addEdge(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Dependency)
 			}
 			for _, m := range typ.Methods {
-				addMethodEdges(edges, registry, pkgByDir, dirs, pkg.Dir, self.ID, m)
+				addMethodEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, m)
 			}
 		}
 	}
 
-	for _, e := range buildImplementationEdges(pkgs, registry, pkgByDir, dirs) {
+	for _, e := range buildImplementationEdges(pkgs, registry, pkgByDir, dirs, modulePath) {
 		key := edgeKey{From: e.From, To: e.To, Kind: Implementation}
 		if _, exists := edges[key]; !exists {
 			e := e
@@ -343,20 +350,20 @@ type edgeKey struct {
 
 // addMethodEdges adds Dependency edges for every parameter and result
 // TypeRef of m.
-func addMethodEdges(edges map[edgeKey]*Edge, registry map[entryKey]*Entry, pkgByDir map[string]*gocode.Package, dirs []string, fromDir, fromID string, m gocode.Method) {
+func addMethodEdges(edges map[edgeKey]*Edge, registry map[entryKey]*Entry, pkgByDir map[string]*gocode.Package, dirs []string, modulePath, fromDir, fromID string, m gocode.Method) {
 	for _, ref := range m.Params {
-		addEdge(edges, registry, pkgByDir, dirs, fromDir, fromID, ref, Dependency)
+		addEdge(edges, registry, pkgByDir, dirs, modulePath, fromDir, fromID, ref, Dependency)
 	}
 	for _, ref := range m.Results {
-		addEdge(edges, registry, pkgByDir, dirs, fromDir, fromID, ref, Dependency)
+		addEdge(edges, registry, pkgByDir, dirs, modulePath, fromDir, fromID, ref, Dependency)
 	}
 }
 
 // addEdge resolves ref against the package rooted at fromDir and, if
 // it names another known Entry (and is not a self-reference), records
 // or merges an edge of the given kind from fromID to it.
-func addEdge(edges map[edgeKey]*Edge, registry map[entryKey]*Entry, pkgByDir map[string]*gocode.Package, dirs []string, fromDir, fromID string, ref gocode.TypeRef, kind EdgeKind) {
-	target, ok := resolveTypeRef(registry, pkgByDir, dirs, fromDir, ref)
+func addEdge(edges map[edgeKey]*Edge, registry map[entryKey]*Entry, pkgByDir map[string]*gocode.Package, dirs []string, modulePath, fromDir, fromID string, ref gocode.TypeRef, kind EdgeKind) {
+	target, ok := resolveTypeRef(registry, pkgByDir, dirs, modulePath, fromDir, ref)
 	if !ok || target.ID == fromID {
 		return
 	}
@@ -378,13 +385,11 @@ func addEdge(edges map[edgeKey]*Edge, registry map[entryKey]*Entry, pkgByDir map
 
 // resolveTypeRef finds the Entry that ref refers to, if any. When
 // ref.PkgName is "" the lookup happens in fromDir's own package;
-// otherwise ref.PkgName is resolved to an import of fromDir's package
-// (matching an explicit alias, or the import path's last segment as
-// the default local name), and that import's path is matched against
-// every known package directory's path suffix to find the target
-// directory.
-func resolveTypeRef(registry map[entryKey]*Entry, pkgByDir map[string]*gocode.Package, dirs []string, fromDir string, ref gocode.TypeRef) (*Entry, bool) {
-	key, ok := resolveRefKey(pkgByDir, dirs, fromDir, ref)
+// otherwise ref.PkgName is resolved to an import of fromDir's package.
+// When modulePath is known, the import is matched exactly against it;
+// otherwise resolution falls back to matching analyzed directory suffixes.
+func resolveTypeRef(registry map[entryKey]*Entry, pkgByDir map[string]*gocode.Package, dirs []string, modulePath, fromDir string, ref gocode.TypeRef) (*Entry, bool) {
+	key, ok := resolveRefKey(pkgByDir, dirs, modulePath, fromDir, ref)
 	if !ok {
 		return nil, false
 	}
@@ -399,7 +404,7 @@ func resolveTypeRef(registry map[entryKey]*Entry, pkgByDir map[string]*gocode.Pa
 // features agree on how a TypeRef's package qualifier maps to an
 // analyzed package directory. See resolveTypeRef's doc comment for the
 // resolution rule itself.
-func resolveRefKey(pkgByDir map[string]*gocode.Package, dirs []string, fromDir string, ref gocode.TypeRef) (entryKey, bool) {
+func resolveRefKey(pkgByDir map[string]*gocode.Package, dirs []string, modulePath, fromDir string, ref gocode.TypeRef) (entryKey, bool) {
 	if ref.Name == "" {
 		return entryKey{}, false
 	}
@@ -410,36 +415,50 @@ func resolveRefKey(pkgByDir map[string]*gocode.Package, dirs []string, fromDir s
 		if pkg == nil {
 			return entryKey{}, false
 		}
-		imp, ok := findImport(pkg.Imports, ref.PkgName)
+		resolvedDir, ok := resolveTypeImportDir(pkg.Imports, pkgByDir, dirs, modulePath, ref.PkgName)
 		if !ok {
 			return entryKey{}, false
 		}
-		targetDir, ok = resolveImportDir(dirs, imp.Path)
-		if !ok {
-			return entryKey{}, false
-		}
+		targetDir = resolvedDir
 	}
 
 	return entryKey{targetDir, ref.Name}, true
 }
 
-// findImport finds the import declaration that the identifier
-// qualifier refers to: an import whose explicit Alias equals
-// qualifier, or (failing that) an unaliased import whose path's last
-// segment equals qualifier (the default local name Go gives an
-// import).
-func findImport(imports []gocode.Import, qualifier string) (gocode.Import, bool) {
+func resolveTypeImportDir(imports []gocode.Import, pkgByDir map[string]*gocode.Package, dirs []string, modulePath, qualifier string) (string, bool) {
 	for _, imp := range imports {
-		if imp.Alias != "" && imp.Alias == qualifier {
-			return imp, true
+		if imp.Alias != qualifier {
+			continue
+		}
+		if dir, ok := resolveAnalyzedImportDir(pkgByDir, dirs, modulePath, imp.Path); ok {
+			return dir, true
 		}
 	}
 	for _, imp := range imports {
-		if imp.Alias == "" && path.Base(imp.Path) == qualifier {
-			return imp, true
+		if imp.Alias != "" {
+			continue
+		}
+		dir, ok := resolveAnalyzedImportDir(pkgByDir, dirs, modulePath, imp.Path)
+		if ok && pkgByDir[dir].Name == qualifier {
+			return dir, true
 		}
 	}
-	return gocode.Import{}, false
+	return "", false
+}
+
+func resolveAnalyzedImportDir(pkgByDir map[string]*gocode.Package, dirs []string, modulePath, importPath string) (string, bool) {
+	if modulePath == "" {
+		return resolveImportDir(dirs, importPath)
+	}
+	rest, ok := trimModulePrefix(modulePath, importPath)
+	if !ok {
+		return "", false
+	}
+	if rest == "" {
+		rest = "."
+	}
+	_, ok = pkgByDir[rest]
+	return rest, ok
 }
 
 // resolveImportDir matches importPath against every known package

@@ -43,7 +43,7 @@ import (
 //     one of the interface's methods (after embedding expansion) has
 //     a match in the struct's method set (also after embedding
 //     expansion).
-func buildImplementationEdges(pkgs []*gocode.Package, registry map[entryKey]*Entry, pkgByDir map[string]*gocode.Package, dirs []string) []Edge {
+func buildImplementationEdges(pkgs []*gocode.Package, registry map[entryKey]*Entry, pkgByDir map[string]*gocode.Package, dirs []string, modulePath string) []Edge {
 	ifaceByKey := map[entryKey]*gocode.Interface{}
 	structByKey := map[entryKey]*gocode.Struct{}
 	for _, pkg := range pkgs {
@@ -60,10 +60,10 @@ func buildImplementationEdges(pkgs []*gocode.Package, registry map[entryKey]*Ent
 	for _, pkg := range pkgs {
 		for _, s := range pkg.Structs {
 			structEntry := registry[entryKey{pkg.Dir, s.Name}]
-			structMethods := effectiveStructMethods(pkg.Dir, s, pkgByDir, dirs, structByKey, ifaceByKey, ifaceMethodsMemo)
+			structMethods := effectiveStructMethods(pkg.Dir, s, pkgByDir, dirs, modulePath, structByKey, ifaceByKey, ifaceMethodsMemo)
 
 			for ifaceKey := range ifaceByKey {
-				methods := resolveInterfaceMethods(ifaceKey, ifaceByKey, ifaceMethodsMemo, pkgByDir, dirs, map[entryKey]bool{})
+				methods := resolveInterfaceMethods(ifaceKey, ifaceByKey, ifaceMethodsMemo, pkgByDir, dirs, modulePath, map[entryKey]bool{})
 				if len(methods) == 0 {
 					continue
 				}
@@ -81,7 +81,7 @@ func buildImplementationEdges(pkgs []*gocode.Package, registry map[entryKey]*Ent
 				concreteMethods[method.Name] = method
 			}
 			for ifaceKey := range ifaceByKey {
-				methods := resolveInterfaceMethods(ifaceKey, ifaceByKey, ifaceMethodsMemo, pkgByDir, dirs, map[entryKey]bool{})
+				methods := resolveInterfaceMethods(ifaceKey, ifaceByKey, ifaceMethodsMemo, pkgByDir, dirs, modulePath, map[entryKey]bool{})
 				if len(methods) == 0 || !implementsAll(concreteMethods, methods) {
 					continue
 				}
@@ -100,7 +100,7 @@ func buildImplementationEdges(pkgs []*gocode.Package, registry map[entryKey]*Ent
 // methods. An embed that does not resolve to another entry known in
 // ifaceByKey (an external package, a struct, or a generic type
 // constraint element) is silently skipped.
-func resolveInterfaceMethods(key entryKey, ifaceByKey map[entryKey]*gocode.Interface, memo map[entryKey][]gocode.Method, pkgByDir map[string]*gocode.Package, dirs []string, visiting map[entryKey]bool) []gocode.Method {
+func resolveInterfaceMethods(key entryKey, ifaceByKey map[entryKey]*gocode.Interface, memo map[entryKey][]gocode.Method, pkgByDir map[string]*gocode.Package, dirs []string, modulePath string, visiting map[entryKey]bool) []gocode.Method {
 	if m, ok := memo[key]; ok {
 		return m
 	}
@@ -117,14 +117,14 @@ func resolveInterfaceMethods(key entryKey, ifaceByKey map[entryKey]*gocode.Inter
 
 	methods := append([]gocode.Method(nil), iface.Methods...)
 	for _, embed := range iface.Embeds {
-		embedKey, ok := resolveRefKey(pkgByDir, dirs, key.Dir, embed)
+		embedKey, ok := resolveRefKey(pkgByDir, dirs, modulePath, key.Dir, embed)
 		if !ok {
 			continue
 		}
 		if _, ok := ifaceByKey[embedKey]; !ok {
 			continue
 		}
-		methods = append(methods, resolveInterfaceMethods(embedKey, ifaceByKey, memo, pkgByDir, dirs, visiting)...)
+		methods = append(methods, resolveInterfaceMethods(embedKey, ifaceByKey, memo, pkgByDir, dirs, modulePath, visiting)...)
 	}
 
 	memo[key] = methods
@@ -141,11 +141,11 @@ func resolveInterfaceMethods(key entryKey, ifaceByKey map[entryKey]*gocode.Inter
 // promotes an embedded interface's methods to the outer struct just as
 // it does an embedded struct's. An embed that does not resolve at all
 // is silently skipped.
-func effectiveStructMethods(dir string, s *gocode.Struct, pkgByDir map[string]*gocode.Package, dirs []string, structByKey map[entryKey]*gocode.Struct, ifaceByKey map[entryKey]*gocode.Interface, ifaceMethodsMemo map[entryKey][]gocode.Method) map[string]gocode.Method {
+func effectiveStructMethods(dir string, s *gocode.Struct, pkgByDir map[string]*gocode.Package, dirs []string, modulePath string, structByKey map[entryKey]*gocode.Struct, ifaceByKey map[entryKey]*gocode.Interface, ifaceMethodsMemo map[entryKey][]gocode.Method) map[string]gocode.Method {
 	methods := map[string]gocode.Method{}
 
 	for _, embed := range s.Embeds {
-		key, ok := resolveRefKey(pkgByDir, dirs, dir, embed)
+		key, ok := resolveRefKey(pkgByDir, dirs, modulePath, dir, embed)
 		if !ok {
 			continue
 		}
@@ -156,7 +156,7 @@ func effectiveStructMethods(dir string, s *gocode.Struct, pkgByDir map[string]*g
 			continue
 		}
 		if _, ok := ifaceByKey[key]; ok {
-			for _, m := range resolveInterfaceMethods(key, ifaceByKey, ifaceMethodsMemo, pkgByDir, dirs, map[entryKey]bool{}) {
+			for _, m := range resolveInterfaceMethods(key, ifaceByKey, ifaceMethodsMemo, pkgByDir, dirs, modulePath, map[entryKey]bool{}) {
 				methods[m.Name] = m
 			}
 		}
