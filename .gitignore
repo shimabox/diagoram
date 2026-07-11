@@ -1,0 +1,12 @@
+# Build artifacts
+/dist/
+/diagoram
+/diagoram.exe
+
+# Go
+*.test
+*.out
+
+# OS / editor
+.DS_Store
+*.swp
