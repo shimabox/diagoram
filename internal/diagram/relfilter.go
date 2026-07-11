@@ -107,7 +107,10 @@ func buildRelTargetIndex(root *PackageNode) (map[string][]string, []string) {
 	walk = func(node *PackageNode) {
 		for _, e := range node.Entries {
 			index[e.Name] = append(index[e.Name], e.ID)
-			if node.Path != "" {
+			if node.PackageName != "" {
+				qualified := node.PackageName + "." + e.Name
+				index[qualified] = append(index[qualified], e.ID)
+			} else if node.Path != "" {
 				qualified := lastPathSegment(node.Path) + "." + e.Name
 				index[qualified] = append(index[qualified], e.ID)
 			}
@@ -211,5 +214,5 @@ func filterNode(node *PackageNode, keep map[string]bool) *PackageNode {
 	if len(entries) == 0 && len(children) == 0 {
 		return nil
 	}
-	return &PackageNode{Name: node.Name, Path: node.Path, Entries: entries, Children: children}
+	return &PackageNode{Name: node.Name, Path: node.Path, PackageName: node.PackageName, Entries: entries, Children: children}
 }

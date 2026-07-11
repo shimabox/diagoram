@@ -32,8 +32,9 @@ type SummaryOptions struct {
 // once it has left the tree walk that found it: its owning package's
 // directory path (for same-package vs. "pkg.Type" display) and name.
 type entrySummaryMeta struct {
-	name string
-	dir  string
+	name        string
+	dir         string
+	packageName string
 }
 
 // Summary returns d as a plain-text listing of the analysis:
@@ -120,7 +121,7 @@ func Summary(d *Diagram, opt SummaryOptions) string {
 // into out, keyed by Entry.ID.
 func collectSummaryMeta(node *PackageNode, out map[string]entrySummaryMeta) {
 	for _, e := range node.Entries {
-		out[e.ID] = entrySummaryMeta{name: e.Name, dir: node.Path}
+		out[e.ID] = entrySummaryMeta{name: e.Name, dir: node.Path, packageName: node.PackageName}
 	}
 	for _, c := range node.Children {
 		collectSummaryMeta(c, out)
@@ -129,11 +130,16 @@ func collectSummaryMeta(node *PackageNode, out map[string]entrySummaryMeta) {
 
 // qualifiedSummaryName renders m as seen from an Entry declared in
 // viewerDir: its bare name when m is declared in the same directory,
-// or "pkg.Name" (pkg being m's owning directory's last path segment)
-// otherwise.
+// or "pkg.Name" (using the declared package name) otherwise.
 func qualifiedSummaryName(m entrySummaryMeta, viewerDir string) string {
-	if m.dir == viewerDir || m.dir == "" {
+	if m.dir == viewerDir {
 		return m.name
+	}
+	if m.packageName != "" {
+		return m.packageName + "." + m.name
+	}
+	if m.dir == "" {
+		return "." + m.name
 	}
 	return lastPathSegment(m.dir) + "." + m.name
 }

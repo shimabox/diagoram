@@ -102,9 +102,10 @@ func BuildPackageGraph(pkgs []*gocode.Package, modulePath string, showExternal b
 		dirSet[pkg.Dir] = true
 		if pkg.Dir == "." || pkg.Dir == "" {
 			hasRoot = true
+			root.PackageName = pkg.Name
 			continue
 		}
-		ensureNode(nodes, root, pkg.Dir)
+		ensureNode(nodes, root, pkg.Dir).PackageName = pkg.Name
 	}
 	sortTree(root)
 

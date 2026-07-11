@@ -293,4 +293,7 @@ func TestBuildWithModulePath_ResolvesRootPackageImport(t *testing.T) {
 	if len(d.Edges) != 1 || d.Edges[0] != want {
 		t.Fatalf("Edges = %+v, want %+v", d.Edges, []Edge{want})
 	}
+	if got := Summary(d, SummaryOptions{}); !strings.Contains(got, "→ semver.Version") {
+		t.Fatalf("Summary = %q, want root target qualified by package name", got)
+	}
 }

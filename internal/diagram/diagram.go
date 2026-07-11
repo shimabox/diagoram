@@ -70,6 +70,9 @@ type PackageNode struct {
 	// Path is the full path from the root, e.g. "product/attribute".
 	// The root node's Path is "".
 	Path string
+	// PackageName is the declared Go package name when this directory
+	// contains an analyzed package. Ancestor-only nodes leave it empty.
+	PackageName string
 	// Children are this node's immediate subdirectories, sorted by
 	// Name.
 	Children []*PackageNode
@@ -238,6 +241,7 @@ func BuildWithModulePath(pkgs []*gocode.Package, modulePath string) *Diagram {
 		pkgByDir[pkg.Dir] = pkg
 		dirs = append(dirs, pkg.Dir)
 		node := ensureNode(nodes, root, pkg.Dir)
+		node.PackageName = pkg.Name
 
 		for _, s := range pkg.Structs {
 			e := &Entry{
