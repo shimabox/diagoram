@@ -21,6 +21,9 @@ type ParseOptions struct {
 	// base name) that exclude a file even if it matches Includes.
 	// Defaults to []string{"*_test.go"} when empty.
 	Excludes []string
+	// ExcludeDirs is a list of slash-separated glob patterns matched
+	// against directory paths relative to the analysis root.
+	ExcludeDirs []string
 }
 
 // Package is one analyzed Go package: all the declarations gathered

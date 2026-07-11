@@ -116,6 +116,12 @@ func TestRun(t *testing.T) {
 			wantStdoutHas: "--format=mermaid|plantuml",
 		},
 		{
+			name:          "-h mentions --exclude-dir",
+			args:          []string{"-h"},
+			wantCode:      0,
+			wantStdoutHas: "--exclude-dir",
+		},
+		{
 			name:          "unknown --format value reports candidates",
 			args:          []string{"--format=graphviz", fixturesDir + "/basic"},
 			wantCode:      1,
@@ -138,6 +144,12 @@ func TestRun(t *testing.T) {
 			args:          []string{"--exclude=[", fixturesDir + "/basic"},
 			wantCode:      1,
 			wantStderrHas: "invalid exclude glob",
+		},
+		{
+			name:          "malformed exclude-dir glob is rejected",
+			args:          []string{"--exclude-dir=[", fixturesDir + "/basic"},
+			wantCode:      1,
+			wantStderrHas: "invalid exclude-dir glob",
 		},
 	}
 

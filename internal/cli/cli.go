@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	pathpkg "path"
 	"path/filepath"
 	"strings"
 
@@ -74,9 +75,12 @@ Options:
                       --package-diagram.
   --include='glob'    Only analyze files matching glob (repeatable;
                       default "*.go")
-  --exclude='glob'    Skip files matching glob (repeatable; default
-                      "*_test.go"; repeating --exclude replaces the
-                      default rather than adding to it)
+	  --exclude='glob'    Skip files matching glob (repeatable; default
+	                      "*_test.go"; repeating --exclude replaces the
+	                      default rather than adding to it)
+	  --exclude-dir='glob'
+	                      Skip directories whose slash-separated path,
+	                      relative to <dir>, matches glob (repeatable)
   -h, --help          Show this help message and exit
   -v, --version       Show version information and exit
 `
@@ -139,6 +143,8 @@ type Options struct {
 	// (matched against a file's base name). Empty means gocode.Parse's
 	// default ("*_test.go").
 	Exclude []string
+	// ExcludeDirs contains relative directory globs passed via --exclude-dir.
+	ExcludeDirs []string
 	// Dir is the directory to analyze.
 	Dir string
 }
@@ -189,6 +195,13 @@ func parseArgs(args []string, stderr io.Writer) (*Options, error) {
 			return fmt.Errorf("invalid exclude glob %q: %w", v, err)
 		}
 		opts.Exclude = append(opts.Exclude, v)
+		return nil
+	})
+	fs.Func("exclude-dir", "skip directories matching this relative path glob (repeatable)", func(v string) error {
+		if _, err := pathpkg.Match(v, ""); err != nil {
+			return fmt.Errorf("invalid exclude-dir glob %q: %w", v, err)
+		}
+		opts.ExcludeDirs = append(opts.ExcludeDirs, v)
 		return nil
 	})
 
@@ -283,8 +296,9 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	}
 
 	pkgs, warnings, err := gocode.Parse(opts.Dir, gocode.ParseOptions{
-		Includes: opts.Include,
-		Excludes: opts.Exclude,
+		Includes:    opts.Include,
+		Excludes:    opts.Exclude,
+		ExcludeDirs: opts.ExcludeDirs,
 	})
 	if err != nil {
 		fmt.Fprintf(stderr, "Error: cannot analyze %q: %v\n", opts.Dir, err)

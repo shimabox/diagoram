@@ -3,6 +3,7 @@ package gocode
 import (
 	"io/fs"
 	"os"
+	pathpkg "path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -63,6 +64,13 @@ func discoverDirs(rootDir string, opt ParseOptions) ([]dirFiles, error) {
 			if skipDirNames[base] || strings.HasPrefix(base, ".") {
 				return fs.SkipDir
 			}
+			rel, err := filepath.Rel(rootDir, path)
+			if err != nil {
+				return err
+			}
+			if matchAnyPath(opt.ExcludeDirs, filepath.ToSlash(rel)) {
+				return fs.SkipDir
+			}
 		}
 
 		entries, err := os.ReadDir(path)
@@ -107,6 +115,15 @@ func discoverDirs(rootDir string, opt ParseOptions) ([]dirFiles, error) {
 
 	sort.Slice(results, func(i, j int) bool { return results[i].Dir < results[j].Dir })
 	return results, nil
+}
+
+func matchAnyPath(patterns []string, name string) bool {
+	for _, pattern := range patterns {
+		if ok, err := pathpkg.Match(pattern, name); err == nil && ok {
+			return true
+		}
+	}
+	return false
 }
 
 // matchAny reports whether name matches at least one of the glob
