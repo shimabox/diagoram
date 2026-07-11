@@ -51,6 +51,8 @@ Options:
 	                      otherwise.
 	  --show-constants    Show constants associated with named types in
 	                      class diagrams. Ignored otherwise.
+	  --show-functions    Show package-level functions in a synthetic class.
+	                      Only affects class diagrams.
   --disable-fields    Do not draw fields in the class diagram. Only
                       affects --class-diagram (and --summary); ignored
                       otherwise.
@@ -122,6 +124,8 @@ type Options struct {
 	HideUnexported bool
 	// ShowConstants includes named-type constants in class diagrams.
 	ShowConstants bool
+	// ShowFunctions includes package-level functions in class diagrams.
+	ShowFunctions bool
 	// DisableFields omits fields from a class diagram/summary
 	// (--disable-fields). It only affects those; harmless otherwise.
 	DisableFields bool
@@ -185,6 +189,7 @@ func parseArgs(args []string, stderr io.Writer) (*Options, error) {
 	fs.BoolVar(&opts.ShowExternal, "show-external", false, "also draw packages outside <dir> in the package diagram")
 	fs.BoolVar(&opts.HideUnexported, "hide-unexported", false, "hide unexported types, fields, and methods")
 	fs.BoolVar(&opts.ShowConstants, "show-constants", false, "show constants associated with named types")
+	fs.BoolVar(&opts.ShowFunctions, "show-functions", false, "show package-level functions in a synthetic class")
 	fs.BoolVar(&opts.DisableFields, "disable-fields", false, "do not draw fields in the class diagram")
 	fs.BoolVar(&opts.DisableMethods, "disable-methods", false, "do not draw methods in the class diagram")
 	fs.BoolVar(&opts.DisableImplements, "disable-implements", false, "do not draw heuristically detected interface implementations")
@@ -376,6 +381,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			out, err = renderer.Render(d, render.Options{
 				HideUnexported:    opts.HideUnexported,
 				ShowConstants:     opts.ShowConstants,
+				ShowFunctions:     opts.ShowFunctions,
 				DisableFields:     opts.DisableFields,
 				DisableMethods:    opts.DisableMethods,
 				DisableImplements: opts.DisableImplements,

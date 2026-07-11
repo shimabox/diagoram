@@ -13,7 +13,11 @@ func FilterUnexported(d *Diagram) *Diagram {
 	var walk func(*PackageNode)
 	walk = func(node *PackageNode) {
 		for _, entry := range node.Entries {
-			if ast.IsExported(entry.Name) {
+			if entry.Kind == KindPackageFunctions {
+				if len(ExportedFunctions(entry.Functions)) > 0 {
+					keep[entry.ID] = true
+				}
+			} else if ast.IsExported(entry.Name) {
 				keep[entry.ID] = true
 			}
 		}
@@ -31,6 +35,17 @@ func FilterUnexported(d *Diagram) *Diagram {
 	}
 	filtered.Edges = edges
 	return filtered
+}
+
+// ExportedFunctions returns the subset of package functions that are exported.
+func ExportedFunctions(functions []gocode.Function) []gocode.Function {
+	var out []gocode.Function
+	for _, function := range functions {
+		if function.Exported {
+			out = append(out, function)
+		}
+	}
+	return out
 }
 
 // ExportedFields returns the subset of fields whose Exported is true,

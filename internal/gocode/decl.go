@@ -16,6 +16,7 @@ type fileDecls struct {
 	Methods          map[string][]Method // receiver type name -> methods
 	Constants        map[string][]Constant
 	PendingConstants []pendingConstant
+	Functions        []Function
 }
 
 type pendingConstant struct {
@@ -75,7 +76,8 @@ func collectDecls(file *ast.File) fileDecls {
 			}
 		case *ast.FuncDecl:
 			if d.Recv == nil || len(d.Recv.List) == 0 {
-				continue // plain function, not a method: out of scope.
+				fd.Functions = append(fd.Functions, functionFromDecl(d))
+				continue
 			}
 			recvName := receiverTypeName(d.Recv.List[0].Type)
 			if recvName == "" {
@@ -86,6 +88,14 @@ func collectDecls(file *ast.File) fileDecls {
 	}
 
 	return fd
+}
+
+func functionFromDecl(d *ast.FuncDecl) Function {
+	return Function{
+		Name: d.Name.Name, Doc: docFirstLine(d.Doc),
+		Params: typeRefsFromFieldList(d.Type.Params), Results: typeRefsFromFieldList(d.Type.Results),
+		Exported: ast.IsExported(d.Name.Name),
+	}
 }
 
 func collectConstants(decl *ast.GenDecl, fd *fileDecls) {

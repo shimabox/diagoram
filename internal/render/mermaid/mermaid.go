@@ -64,11 +64,13 @@ func renderTree(root *diagram.PackageNode, opt render.Options) []string {
 // sibling blocks never collide.
 func renderSubtree(node *diagram.PackageNode, opt render.Options) []string {
 	var lines []string
-	if len(node.Entries) > 0 {
+	var body []string
+	for _, e := range node.Entries {
+		body = append(body, renderClass(e, 2, opt)...)
+	}
+	if len(body) > 0 {
 		lines = append(lines, indentUnit+"namespace "+namespaceName(node.Path)+" {")
-		for _, e := range node.Entries {
-			lines = append(lines, renderClass(e, 2, opt)...)
-		}
+		lines = append(lines, body...)
 		lines = append(lines, indentUnit+"}")
 	}
 	for _, c := range node.Children {
@@ -89,6 +91,23 @@ func renderClass(e *diagram.Entry, depth int, opt render.Options) []string {
 	indent := strings.Repeat(indentUnit, depth)
 	memberIndent := strings.Repeat(indentUnit, depth+1)
 	header := fmt.Sprintf(`%sclass %s["%s"]`, indent, e.ID, e.Name)
+	if e.Kind == diagram.KindPackageFunctions {
+		if !opt.ShowFunctions {
+			return nil
+		}
+		functions := e.Functions
+		if opt.HideUnexported {
+			functions = diagram.ExportedFunctions(functions)
+		}
+		if len(functions) == 0 {
+			return nil
+		}
+		lines := []string{header + " {", memberIndent + "<<package>>"}
+		for _, function := range functions {
+			lines = append(lines, memberIndent+functionLine(function))
+		}
+		return append(lines, indent+"}")
+	}
 
 	fields, methods := visibleMembers(e, opt)
 
@@ -188,6 +207,22 @@ func methodLine(m gocode.Method) string {
 	return line
 }
 
+func functionLine(function gocode.Function) string {
+	params := make([]string, len(function.Params))
+	for i, param := range function.Params {
+		params[i] = formatType(param.String)
+	}
+	results := make([]string, len(function.Results))
+	for i, result := range function.Results {
+		results[i] = formatType(result.String)
+	}
+	line := visibility(function.Exported) + function.Name + "(" + strings.Join(params, ", ") + ")"
+	if len(results) > 0 {
+		line += " " + strings.Join(results, ", ")
+	}
+	return line
+}
+
 // visibility returns Mermaid's "+"/"-" member-visibility marker.
 func visibility(exported bool) string {
 	if exported {
@@ -208,6 +243,9 @@ func renderEdges(edges []diagram.Edge, opt render.Options) []string {
 		if e.Kind == diagram.Implementation && opt.DisableImplements {
 			continue
 		}
+		if e.Kind == diagram.PackageFunctionDependency && !opt.ShowFunctions {
+			continue
+		}
 		arrow := "..>"
 		switch e.Kind {
 		case diagram.Embedding:
@@ -216,7 +254,7 @@ func renderEdges(edges []diagram.Edge, opt render.Options) []string {
 			arrow = "..|>"
 		}
 		line := indentUnit + e.From + " " + arrow + " " + e.To
-		if e.Kind == diagram.Dependency && e.ToCollection {
+		if (e.Kind == diagram.Dependency || e.Kind == diagram.PackageFunctionDependency) && e.ToCollection {
 			line += ` : *`
 		}
 		lines = append(lines, line)

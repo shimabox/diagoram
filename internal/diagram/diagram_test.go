@@ -54,8 +54,8 @@ func TestBuild_Basic(t *testing.T) {
 	if len(d.Root.Children) != 0 {
 		t.Fatalf("Root.Children = %+v, want none", d.Root.Children)
 	}
-	if len(d.Root.Entries) != 1 {
-		t.Fatalf("Root.Entries = %+v, want 1 entry", d.Root.Entries)
+	if len(d.Root.Entries) != 2 {
+		t.Fatalf("Root.Entries = %+v, want Product and package functions", d.Root.Entries)
 	}
 
 	product := d.Root.Entries[0]
@@ -87,8 +87,9 @@ func TestBuild_Basic(t *testing.T) {
 		}
 	}
 
-	if len(d.Edges) != 0 {
-		t.Errorf("Edges = %+v, want none (Product only refers to primitives)", d.Edges)
+	wantEdge := Edge{From: "package_functions", To: "Product", Kind: PackageFunctionDependency}
+	if len(d.Edges) != 1 || d.Edges[0] != wantEdge {
+		t.Errorf("Edges = %+v, want package constructor dependency %+v", d.Edges, wantEdge)
 	}
 }
 

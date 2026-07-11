@@ -1,4 +1,4 @@
-diagoram: 1 packages, 2 structs, 1 interfaces, 8 named types
+diagoram: 1 packages, 2 structs, 1 interfaces, 8 named types, 0 functions
 
 .
   Code      (type)      constants=4  methods=0

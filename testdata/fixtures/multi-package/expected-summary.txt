@@ -1,4 +1,4 @@
-diagoram: 3 packages, 3 structs, 0 interfaces, 0 named types
+diagoram: 3 packages, 3 structs, 0 interfaces, 0 named types, 0 functions
 
 config/
   Config (struct) fields=2 methods=0  → attribute.Color

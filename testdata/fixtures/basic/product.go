@@ -17,6 +17,10 @@ func NewProduct(name string, price int) *Product {
 	return &Product{Name: name, Price: price}
 }
 
+func newInternalProduct() *Product {
+	return &Product{}
+}
+
 // Discount reduces the price by the given percentage.
 func (p *Product) Discount(percent int) {
 	p.Price -= p.Price * percent / 100

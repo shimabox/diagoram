@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 )
 
 // Parse analyzes every Go package under rootDir and returns the
@@ -84,12 +85,20 @@ func parseDir(d dirFiles) (*Package, []Warning) {
 	constantsByType := map[string][]Constant{}
 	var pendingConstants []pendingConstant
 	importSet := map[Import]bool{}
+	functionSet := map[string]bool{}
 
 	for _, file := range files {
 		fd := collectDecls(file)
 		pkg.Structs = append(pkg.Structs, fd.Structs...)
 		pkg.Interfaces = append(pkg.Interfaces, fd.Interfaces...)
 		pkg.NamedTypes = append(pkg.NamedTypes, fd.NamedTypes...)
+		for _, function := range fd.Functions {
+			key := functionSignatureKey(function)
+			if !functionSet[key] {
+				functionSet[key] = true
+				pkg.Functions = append(pkg.Functions, function)
+			}
+		}
 		for recv, methods := range fd.Methods {
 			methodsByReceiver[recv] = append(methodsByReceiver[recv], methods...)
 		}
@@ -132,6 +141,21 @@ func parseDir(d dirFiles) (*Package, []Warning) {
 	})
 
 	return pkg, warnings
+}
+
+func functionSignatureKey(function Function) string {
+	var key strings.Builder
+	key.WriteString(function.Name)
+	for _, ref := range function.Params {
+		key.WriteByte('\x00')
+		key.WriteString(ref.String)
+	}
+	key.WriteByte('\x01')
+	for _, ref := range function.Results {
+		key.WriteByte('\x00')
+		key.WriteString(ref.String)
+	}
+	return key.String()
 }
 
 func resolvePendingConstants(namedTypes []*NamedType, constantsByType map[string][]Constant, pending []pendingConstant) {

@@ -160,3 +160,19 @@ func TestRender_ShowConstants(t *testing.T) {
 		t.Errorf("Render(ShowConstants, HideUnexported) = %q, want no codeHidden", got)
 	}
 }
+
+func TestRender_ShowFunctions(t *testing.T) {
+	d := build(t, fixturesDir+"/basic")
+	got, err := New().Render(d, render.Options{ShowFunctions: true, HideUnexported: true, DisableMethods: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`class package_functions["package functions"]`, "+NewProduct(string, int) *Product", "package_functions ..> Product"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("Render(ShowFunctions) = %q, want %q", got, want)
+		}
+	}
+	if strings.Contains(got, "newInternalProduct") {
+		t.Errorf("Render(ShowFunctions, HideUnexported) = %q, want no private function", got)
+	}
+}

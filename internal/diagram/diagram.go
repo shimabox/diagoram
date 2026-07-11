@@ -28,6 +28,8 @@ const (
 	KindInterface
 	// KindNamedType marks a named slice, map, or function type.
 	KindNamedType
+	// KindPackageFunctions marks a synthetic package-level function entry.
+	KindPackageFunctions
 )
 
 // EdgeKind distinguishes the relationships diagoram draws between
@@ -44,6 +46,8 @@ const (
 	// interface" relationship (see buildImplementationEdges). It points
 	// from a concrete named type to a KindInterface Entry.
 	Implementation
+	// PackageFunctionDependency comes from a package-level function signature.
+	PackageFunctionDependency
 )
 
 // Diagram is the fully built intermediate representation: the package
@@ -77,12 +81,12 @@ type PackageNode struct {
 	// Children are this node's immediate subdirectories, sorted by
 	// Name.
 	Children []*PackageNode
-	// Entries are the structs/interfaces declared directly in this
-	// node's directory, sorted by Name.
+	// Entries are the types and optional synthetic package-function entry
+	// declared directly in this node's directory, sorted by Name.
 	Entries []*Entry
 }
 
-// Entry is one supported named Go type, ready to be rendered.
+// Entry is one supported named Go type or a synthetic package-function group.
 type Entry struct {
 	// ID is a diagram-wide unique, identifier-safe name (e.g.
 	// "product_attribute_Color"). It is derived from the owning
@@ -103,6 +107,8 @@ type Entry struct {
 	Methods []gocode.Method
 	// NamedType is populated only when Kind is KindNamedType.
 	NamedType *gocode.NamedType
+	// Functions is populated only when Kind is KindPackageFunctions.
+	Functions []gocode.Function
 }
 
 // NamedTypeLabel returns the user-facing name of a named type's shape.
@@ -185,13 +191,21 @@ func entryID(dir, name string) string {
 // output for the overwhelmingly common non-colliding case.
 func uniqueEntryID(dir, name string, used map[string]entryKey) string {
 	key := entryKey{Dir: dir, Name: name}
-	base := entryID(dir, name)
+	return allocateUniqueID(entryID(dir, name), key, used)
+}
+
+func uniquePackageFunctionsID(dir string, used map[string]entryKey) string {
+	key := entryKey{Dir: dir, Name: "\x00package functions"}
+	return allocateUniqueID(entryID(dir, "package_functions"), key, used)
+}
+
+func allocateUniqueID(base string, key entryKey, used map[string]entryKey) string {
 	if previous, exists := used[base]; !exists || previous == key {
 		used[base] = key
 		return base
 	}
 
-	sum := sha256.Sum256([]byte(dir + "\x00" + name))
+	sum := sha256.Sum256([]byte(key.Dir + "\x00" + key.Name))
 	for bytes := 4; bytes <= len(sum); bytes++ {
 		candidate := base + "_" + hex.EncodeToString(sum[:bytes])
 		if previous, exists := used[candidate]; !exists || previous == key {
@@ -235,6 +249,7 @@ func BuildWithModulePath(pkgs []*gocode.Package, modulePath string) *Diagram {
 
 	registry := map[entryKey]*Entry{}
 	usedIDs := map[string]entryKey{}
+	packageFunctionEntries := map[string]*Entry{}
 	pkgByDir := map[string]*gocode.Package{}
 	var dirs []string
 
@@ -278,6 +293,14 @@ func BuildWithModulePath(pkgs []*gocode.Package, modulePath string) *Diagram {
 			node.Entries = append(node.Entries, e)
 			registry[entryKey{pkg.Dir, typ.Name}] = e
 		}
+		if len(pkg.Functions) > 0 {
+			e := &Entry{
+				ID: uniquePackageFunctionsID(pkg.Dir, usedIDs), Name: "package functions",
+				Kind: KindPackageFunctions, Functions: pkg.Functions,
+			}
+			node.Entries = append(node.Entries, e)
+			packageFunctionEntries[pkg.Dir] = e
+		}
 	}
 
 	sortTree(root)
@@ -319,6 +342,16 @@ func BuildWithModulePath(pkgs []*gocode.Package, modulePath string) *Diagram {
 			}
 			for _, m := range typ.Methods {
 				addMethodEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, m)
+			}
+		}
+		if entry := packageFunctionEntries[pkg.Dir]; entry != nil {
+			for _, function := range pkg.Functions {
+				for _, ref := range function.Params {
+					addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, entry.ID, ref, PackageFunctionDependency, !function.Exported)
+				}
+				for _, ref := range function.Results {
+					addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, entry.ID, ref, PackageFunctionDependency, !function.Exported)
+				}
 			}
 		}
 	}
@@ -369,8 +402,12 @@ func addMethodEdges(edges map[edgeKey]*Edge, registry map[entryKey]*Entry, pkgBy
 
 func addTypeRefEdges(edges map[edgeKey]*Edge, registry map[entryKey]*Entry, pkgByDir map[string]*gocode.Package, dirs []string, modulePath, fromDir, fromID string, ref gocode.TypeRef, kind EdgeKind, unexported bool) {
 	addEdge(edges, registry, pkgByDir, dirs, modulePath, fromDir, fromID, ref, kind, unexported)
+	relatedKind := Dependency
+	if kind == PackageFunctionDependency {
+		relatedKind = kind
+	}
 	for _, related := range ref.Related {
-		addEdge(edges, registry, pkgByDir, dirs, modulePath, fromDir, fromID, related, Dependency, unexported)
+		addEdge(edges, registry, pkgByDir, dirs, modulePath, fromDir, fromID, related, relatedKind, unexported)
 	}
 }
 

@@ -161,6 +161,22 @@ func TestRender_ShowConstants(t *testing.T) {
 	}
 }
 
+func TestRender_ShowFunctions(t *testing.T) {
+	d := build(t, fixturesDir+"/basic")
+	got, err := New().Render(d, render.Options{ShowFunctions: true, HideUnexported: true, DisableMethods: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`class "package functions" as package_functions <<package>>`, "+NewProduct(string, int) : *Product", "package_functions ..> Product"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("Render(ShowFunctions) = %q, want %q", got, want)
+		}
+	}
+	if strings.Contains(got, "newInternalProduct") {
+		t.Errorf("Render(ShowFunctions, HideUnexported) = %q, want no private function", got)
+	}
+}
+
 // TestDocSummary_EscapesQuotesAndBackslashes makes sure a doc comment
 // containing a double quote (as in the "implements" fixture's Labeled
 // interface: `same method name, "Name"`) cannot break out of the

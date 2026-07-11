@@ -29,6 +29,22 @@ func TestParseSkipsFilesFromAnotherPackage(t *testing.T) {
 	}
 }
 
+func TestParseDeduplicatesFunctionsAcrossBuildVariants(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"sum_linux.go", "sum_windows.go"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("package sample\nfunc Sum(value int) int { return value }\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	pkgs, warnings := mustParse(t, dir, ParseOptions{})
+	if len(warnings) != 0 || len(pkgs) != 1 {
+		t.Fatalf("packages = %+v, warnings = %+v", pkgs, warnings)
+	}
+	if len(pkgs[0].Functions) != 1 || pkgs[0].Functions[0].Name != "Sum" {
+		t.Fatalf("functions = %+v, want one deduplicated Sum", pkgs[0].Functions)
+	}
+}
+
 const fixturesDir = "../../testdata/fixtures"
 
 func findStruct(pkg *Package, name string) *Struct {
@@ -94,6 +110,15 @@ func findMethod(methods []Method, name string) *Method {
 	for i := range methods {
 		if methods[i].Name == name {
 			return &methods[i]
+		}
+	}
+	return nil
+}
+
+func findFunction(functions []Function, name string) *Function {
+	for i := range functions {
+		if functions[i].Name == name {
+			return &functions[i]
 		}
 	}
 	return nil
@@ -165,9 +190,15 @@ func TestParseBasicFixture(t *testing.T) {
 	}
 
 	// NewProduct is a plain function, not a method: it must not be
-	// attached to Product.
+	// attached to Product, but is retained at package level.
 	if m := findMethod(product.Methods, "NewProduct"); m != nil {
 		t.Errorf("plain function NewProduct was attached as a method: %+v", m)
+	}
+	if fn := findFunction(pkg.Functions, "NewProduct"); fn == nil || !fn.Exported {
+		t.Errorf("package function NewProduct = %+v, want exported function", fn)
+	}
+	if fn := findFunction(pkg.Functions, "newInternalProduct"); fn == nil || fn.Exported {
+		t.Errorf("package function newInternalProduct = %+v, want unexported function", fn)
 	}
 
 	wantMethods := map[string]bool{

@@ -106,6 +106,9 @@ func buildRelTargetIndex(root *PackageNode) (map[string][]string, []string) {
 	var walk func(node *PackageNode)
 	walk = func(node *PackageNode) {
 		for _, e := range node.Entries {
+			if e.Kind == KindPackageFunctions {
+				continue
+			}
 			index[e.Name] = append(index[e.Name], e.ID)
 			if node.PackageName != "" {
 				qualified := node.PackageName + "." + e.Name

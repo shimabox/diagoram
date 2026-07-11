@@ -15,6 +15,8 @@ type Options struct {
 	HideUnexported bool
 	// ShowConstants includes constants associated with named types.
 	ShowConstants bool
+	// ShowFunctions includes synthetic package-level function entries.
+	ShowFunctions bool
 	// DisableFields omits every Entry's fields from the rendered class
 	// body (--disable-fields).
 	DisableFields bool

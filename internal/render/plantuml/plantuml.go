@@ -75,10 +75,8 @@ func renderTree(node *diagram.PackageNode, depth int, opt render.Options) []stri
 // directory's block is a true child of its parent's, unlike Mermaid's
 // flattened namespaces.
 //
-// A node whose entire subtree owns no Entry at all (e.g. a package
-// directory that declares only functions, not structs/interfaces, and
-// has no nested package that declares any either — diagoram's own
-// cmd/diagoram is one such case) is omitted entirely, matching
+// A node whose entire subtree has no Entry visible under the current
+// render options is omitted entirely, matching
 // internal/render/mermaid's own renderSubtree, which likewise never
 // opens a namespace block with nothing in it. Unlike renderSubtree,
 // this check is on the whole subtree (via the recursive renderTree
@@ -120,6 +118,24 @@ func renderPackageBlock(node *diagram.PackageNode, depth int, opt render.Options
 func renderClass(e *diagram.Entry, depth int, opt render.Options) []string {
 	indent := strings.Repeat(indentUnit, depth)
 	memberIndent := strings.Repeat(indentUnit, depth+1)
+	if e.Kind == diagram.KindPackageFunctions {
+		if !opt.ShowFunctions {
+			return nil
+		}
+		functions := e.Functions
+		if opt.HideUnexported {
+			functions = diagram.ExportedFunctions(functions)
+		}
+		if len(functions) == 0 {
+			return nil
+		}
+		header := fmt.Sprintf(`%sclass "%s" as %s <<package>>`, indent, e.Name, e.ID)
+		lines := []string{header + " {"}
+		for _, function := range functions {
+			lines = append(lines, memberIndent+functionLine(function))
+		}
+		return append(lines, indent+"}")
+	}
 
 	keyword := "class"
 	if e.Kind == diagram.KindInterface {
@@ -209,6 +225,22 @@ func methodLine(m gocode.Method) string {
 	return line
 }
 
+func functionLine(function gocode.Function) string {
+	params := make([]string, len(function.Params))
+	for i, param := range function.Params {
+		params[i] = safeType(param.String)
+	}
+	results := make([]string, len(function.Results))
+	for i, result := range function.Results {
+		results[i] = safeType(result.String)
+	}
+	line := visibility(function.Exported) + function.Name + "(" + strings.Join(params, ", ") + ")"
+	if len(results) > 0 {
+		line += " : " + strings.Join(results, ", ")
+	}
+	return line
+}
+
 // visibility returns PlantUML's "+"/"-" member-visibility marker.
 func visibility(exported bool) string {
 	if exported {
@@ -262,6 +294,9 @@ func renderEdges(edges []diagram.Edge, opt render.Options) []string {
 	lines := make([]string, 0, len(edges))
 	for _, e := range edges {
 		if e.Kind == diagram.Implementation && opt.DisableImplements {
+			continue
+		}
+		if e.Kind == diagram.PackageFunctionDependency && !opt.ShowFunctions {
 			continue
 		}
 

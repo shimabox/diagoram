@@ -41,7 +41,7 @@ type entrySummaryMeta struct {
 
 // Summary returns d as a plain-text listing of the analysis:
 //
-//	diagoram: N packages, M structs, K interfaces
+//	diagoram: N packages, M structs, K interfaces, T named types, F functions
 //
 //	product/
 //	  Product (struct)  fields=3 methods=1  → attribute.Color
@@ -88,7 +88,7 @@ func Summary(d *Diagram, opt SummaryOptions) string {
 		implementedBy[k] = names
 	}
 
-	var structCount, ifaceCount, namedTypeCount, pkgCount int
+	var structCount, ifaceCount, namedTypeCount, functionCount, pkgCount int
 	var blocks []string
 	var walk func(node *PackageNode)
 	walk = func(node *PackageNode) {
@@ -100,6 +100,12 @@ func Summary(d *Diagram, opt SummaryOptions) string {
 				ifaceCount++
 			case KindNamedType:
 				namedTypeCount++
+			case KindPackageFunctions:
+				functions := e.Functions
+				if opt.HideUnexported {
+					functions = ExportedFunctions(functions)
+				}
+				functionCount += len(functions)
 			}
 		}
 		if len(node.Entries) > 0 {
@@ -112,7 +118,7 @@ func Summary(d *Diagram, opt SummaryOptions) string {
 	}
 	walk(d.Root)
 
-	header := fmt.Sprintf("diagoram: %d packages, %d structs, %d interfaces, %d named types\n", pkgCount, structCount, ifaceCount, namedTypeCount)
+	header := fmt.Sprintf("diagoram: %d packages, %d structs, %d interfaces, %d named types, %d functions\n", pkgCount, structCount, ifaceCount, namedTypeCount, functionCount)
 	if len(blocks) == 0 {
 		return header
 	}
@@ -159,6 +165,16 @@ func renderSummaryBlock(node *PackageNode, metas map[string]entrySummaryMeta, ou
 	var body strings.Builder
 	tw := tabwriter.NewWriter(&body, 0, 0, 1, ' ', 0)
 	for _, e := range node.Entries {
+		if e.Kind == KindPackageFunctions {
+			functions := e.Functions
+			if opt.HideUnexported {
+				functions = ExportedFunctions(functions)
+			}
+			if len(functions) > 0 {
+				fmt.Fprintf(tw, "  package functions\tcount=%d\n", len(functions))
+			}
+			continue
+		}
 		kindLabel := "(struct)"
 		if e.Kind == KindInterface {
 			kindLabel = "(interface)"

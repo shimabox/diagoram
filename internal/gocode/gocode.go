@@ -56,6 +56,8 @@ type Package struct {
 	Interfaces []*Interface
 	// NamedTypes holds supported named types other than structs and interfaces.
 	NamedTypes []*NamedType
+	// Functions holds package-level function declarations in source order.
+	Functions []Function
 }
 
 // NamedTypeKind identifies the supported underlying shape of a named type.
@@ -157,6 +159,15 @@ type Method struct {
 	// the same way as Params.
 	Results []TypeRef
 	// Exported reports whether Name is exported (ast.IsExported).
+	Exported bool
+}
+
+// Function is a package-level function signature.
+type Function struct {
+	Name     string
+	Doc      string
+	Params   []TypeRef
+	Results  []TypeRef
 	Exported bool
 }
 

@@ -80,6 +80,12 @@ func TestRun(t *testing.T) {
 			wantStdoutHas: "--show-constants",
 		},
 		{
+			name:          "-h mentions --show-functions",
+			args:          []string{"-h"},
+			wantCode:      0,
+			wantStdoutHas: "--show-functions",
+		},
+		{
 			name:          "-h mentions --disable-fields",
 			args:          []string{"-h"},
 			wantCode:      0,
@@ -465,6 +471,20 @@ func TestRunE2E_DisplayOptions(t *testing.T) {
 	}
 	if strings.Contains(stdout.String(), "Name string") {
 		t.Errorf("stdout = %q, want fields disabled entirely", stdout.String())
+	}
+}
+
+func TestRunE2E_ShowFunctions(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"--show-functions", "--hide-unexported", fixturesDir + "/basic"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("Run exit code = %d, want 0 (stderr=%q)", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "NewProduct") || !strings.Contains(stdout.String(), "package_functions ..> Product") {
+		t.Errorf("stdout = %q, want package constructor and dependency", stdout.String())
+	}
+	if strings.Contains(stdout.String(), "newInternalProduct") {
+		t.Errorf("stdout = %q, want private package function hidden", stdout.String())
 	}
 }
 
