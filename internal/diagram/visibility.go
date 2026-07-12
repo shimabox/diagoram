@@ -38,6 +38,25 @@ func FilterUnexported(d *Diagram) *Diagram {
 	return filtered
 }
 
+// FilterAliases returns a diagram without named type-alias entries or edges
+// connected to them.
+func FilterAliases(d *Diagram) *Diagram {
+	keep := map[string]bool{}
+	var walk func(*PackageNode)
+	walk = func(node *PackageNode) {
+		for _, entry := range node.Entries {
+			if entry.Kind != KindNamedType || entry.NamedType == nil || entry.NamedType.Kind != gocode.NamedAlias {
+				keep[entry.ID] = true
+			}
+		}
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	walk(d.Root)
+	return rebuildFiltered(d, keep)
+}
+
 // ExportedFunctions returns the subset of package functions that are exported.
 func ExportedFunctions(functions []gocode.Function) []gocode.Function {
 	var out []gocode.Function

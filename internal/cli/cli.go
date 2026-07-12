@@ -51,6 +51,7 @@ Options:
                       example, test, and benchmark directories.
   --hide-unexported   Hide unexported types, fields, and methods. Only affects
                       --class-diagram (and --summary); ignored otherwise.
+  --hide-aliases      Hide type aliases from class diagrams and summaries.
   --show-constants    Show constants associated with named types in
                       class diagrams. Ignored otherwise.
   --show-functions    Show package-level functions in a synthetic class.
@@ -136,6 +137,8 @@ type Options struct {
 	// HideUnexported hides unexported fields/methods (--hide-unexported).
 	// It only affects a class diagram/summary; harmless otherwise.
 	HideUnexported bool
+	// HideAliases removes named type aliases from class diagrams and summaries.
+	HideAliases bool
 	// PublicAPI enables the externally importable API preset.
 	PublicAPI bool
 	// ShowConstants includes named-type constants in class diagrams.
@@ -217,6 +220,7 @@ func parseArgs(args []string, stderr io.Writer) (*Options, error) {
 	fs.BoolVar(&opts.ShowExternal, "show-external", false, "also draw packages outside <dir> in the package diagram")
 	fs.BoolVar(&opts.PublicAPI, "public-api", false, "focus on externally importable API")
 	fs.BoolVar(&opts.HideUnexported, "hide-unexported", false, "hide unexported types, fields, and methods")
+	fs.BoolVar(&opts.HideAliases, "hide-aliases", false, "hide named type aliases")
 	fs.BoolVar(&opts.ShowConstants, "show-constants", false, "show constants associated with named types")
 	fs.BoolVar(&opts.ShowFunctions, "show-functions", false, "show package-level functions in a synthetic class")
 	fs.Func("function", "only show package functions matching this name glob (repeatable)", func(v string) error {
@@ -444,6 +448,9 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		d := diagram.BuildWithModulePath(pkgs, modulePath)
 		if opts.HideUnexported {
 			d = diagram.FilterUnexported(d)
+		}
+		if opts.HideAliases {
+			d = diagram.FilterAliases(d)
 		}
 		if len(opts.RelTargets) > 0 {
 			filtered, filterErr := diagram.FilterByRelTarget(d, opts.RelTargets, opts.RelTargetDepth)

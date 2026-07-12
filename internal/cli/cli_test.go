@@ -663,6 +663,21 @@ func TestRunE2E_GeneratedFileModes(t *testing.T) {
 	}
 }
 
+func TestRunE2E_HideAliases(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"--summary", "--hide-aliases", fixturesDir + "/named-types"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("Run exit code = %d, want 0 (stderr=%q)", code, stderr.String())
+	}
+	got := stdout.String()
+	if strings.Contains(got, "ItemAlias") {
+		t.Errorf("stdout = %q, do not want ItemAlias", got)
+	}
+	if !strings.Contains(got, "Item") || !strings.Contains(got, "7 named types") {
+		t.Errorf("stdout = %q, want underlying Item and seven remaining named types", got)
+	}
+}
+
 // TestRunE2E_IncludeExclude exercises --include/--exclude end to end:
 // re-including *_test.go for the basic fixture must pull
 // ShouldBeExcludedByDefault (declared in basic_test.go) into the
