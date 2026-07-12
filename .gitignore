@@ -10,3 +10,6 @@
 # OS / editor
 .DS_Store
 *.swp
+
+# Local analysis workspace
+/tmp/
