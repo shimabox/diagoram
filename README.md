@@ -100,6 +100,7 @@ docker run --rm -v "$PWD:/work" plantuml/plantuml -tsvg /work/diagram.puml
 | `--disable-fields` | フィールドを描画しない |
 | `--disable-methods` | メソッドを描画しない |
 | `--disable-implements` | 推定した interface 実装関係を描画しない |
+| `--show-edge-reasons` | edgeにfield、map-keyなどの発生理由を表示 |
 | `--rel-target='A,B'` | 指定した型から辿れる型だけに絞る。複数指定可 |
 | `--rel-target-depth=N` | `--rel-target` で辿る深さ。デフォルトは `1` |
 | `--summary` | 図の代わりに型の一覧を出力 |

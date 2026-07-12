@@ -62,7 +62,8 @@ type Diagram struct {
 	// Edges holds every dependency/embedding edge, sorted
 	// deterministically (by From, then Kind, then To) and deduplicated
 	// (at most one edge per (From, To, Kind) triple, no self-edges).
-	Edges []Edge
+	Edges       []Edge
+	edgeReasons map[edgeKey]EdgeReasons
 }
 
 // PackageNode is one node of the package tree: a single directory
@@ -178,6 +179,58 @@ type Edge struct {
 	// PointerOnly reports that an Implementation edge is satisfied by *T,
 	// but not by T. It is false for every other edge kind.
 	PointerOnly bool
+}
+
+// EdgeReasons is a bit set describing the source constructs behind an edge.
+type EdgeReasons uint32
+
+const (
+	EdgeReasonField EdgeReasons = 1 << iota
+	EdgeReasonMethodParam
+	EdgeReasonMethodResult
+	EdgeReasonEmbedding
+	EdgeReasonNamedUnderlying
+	EdgeReasonFunctionParam
+	EdgeReasonFunctionResult
+	EdgeReasonMapKey
+	EdgeReasonMapValue
+	EdgeReasonTypeArgument
+	EdgeReasonMethodSet
+)
+
+// ReasonsFor returns the source reasons recorded for edge.
+func (d *Diagram) ReasonsFor(edge Edge) EdgeReasons {
+	if d == nil {
+		return 0
+	}
+	return d.edgeReasons[edgeKey{From: edge.From, To: edge.To, Kind: edge.Kind}]
+}
+
+// EdgeReasonLabels returns stable, human-readable labels for reasons.
+func EdgeReasonLabels(reasons EdgeReasons) []string {
+	ordered := []struct {
+		flag  EdgeReasons
+		label string
+	}{
+		{EdgeReasonField, "field"},
+		{EdgeReasonMethodParam, "method-param"},
+		{EdgeReasonMethodResult, "method-result"},
+		{EdgeReasonEmbedding, "embedding"},
+		{EdgeReasonNamedUnderlying, "underlying"},
+		{EdgeReasonFunctionParam, "function-param"},
+		{EdgeReasonFunctionResult, "function-result"},
+		{EdgeReasonMapKey, "map-key"},
+		{EdgeReasonMapValue, "map-value"},
+		{EdgeReasonTypeArgument, "type-argument"},
+		{EdgeReasonMethodSet, "method-set"},
+	}
+	var labels []string
+	for _, item := range ordered {
+		if reasons&item.flag != 0 {
+			labels = append(labels, item.label)
+		}
+	}
+	return labels
 }
 
 // unsafeIDChar matches any rune that is not safe to use in a Mermaid
@@ -329,50 +382,51 @@ func BuildWithModulePath(pkgs []*gocode.Package, modulePath string) *Diagram {
 
 	// Second pass: resolve edges now that every Entry is known.
 	edges := map[edgeKey]*Edge{}
+	edgeReasons := map[edgeKey]EdgeReasons{}
 	for _, pkg := range pkgs {
 		for _, s := range pkg.Structs {
 			self := registry[entryKey{pkg.Dir, s.Name}]
 			for _, ref := range s.Embeds {
-				addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Embedding, !ast.IsExported(ref.Name))
+				addTypeRefEdges(edges, edgeReasons, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Embedding, !ast.IsExported(ref.Name), EdgeReasonEmbedding)
 			}
 			for _, f := range s.Fields {
-				addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, f.Type, Dependency, !f.Exported)
+				addTypeRefEdges(edges, edgeReasons, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, f.Type, Dependency, !f.Exported, EdgeReasonField)
 			}
 			for _, m := range s.Methods {
-				addMethodEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, m)
+				addMethodEdges(edges, edgeReasons, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, m)
 			}
 		}
 		for _, i := range pkg.Interfaces {
 			self := registry[entryKey{pkg.Dir, i.Name}]
 			for _, ref := range i.Embeds {
-				addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Embedding, !ast.IsExported(ref.Name))
+				addTypeRefEdges(edges, edgeReasons, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Embedding, !ast.IsExported(ref.Name), EdgeReasonEmbedding)
 			}
 			for _, m := range i.Methods {
-				addMethodEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, m)
+				addMethodEdges(edges, edgeReasons, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, m)
 			}
 		}
 		for _, typ := range pkg.NamedTypes {
 			self := registry[entryKey{pkg.Dir, typ.Name}]
 			if typ.Kind != gocode.NamedFunc {
-				addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, typ.Underlying, Dependency, false)
+				addTypeRefEdges(edges, edgeReasons, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, typ.Underlying, Dependency, false, EdgeReasonNamedUnderlying)
 			}
 			for _, ref := range typ.Params {
-				addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Dependency, false)
+				addTypeRefEdges(edges, edgeReasons, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Dependency, false, EdgeReasonFunctionParam)
 			}
 			for _, ref := range typ.Results {
-				addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Dependency, false)
+				addTypeRefEdges(edges, edgeReasons, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, ref, Dependency, false, EdgeReasonFunctionResult)
 			}
 			for _, m := range typ.Methods {
-				addMethodEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, m)
+				addMethodEdges(edges, edgeReasons, registry, pkgByDir, dirs, modulePath, pkg.Dir, self.ID, m)
 			}
 		}
 		if entry := packageFunctionEntries[pkg.Dir]; entry != nil {
 			for _, function := range pkg.Functions {
 				for _, ref := range function.Params {
-					addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, entry.ID, ref, PackageFunctionDependency, !function.Exported)
+					addTypeRefEdges(edges, edgeReasons, registry, pkgByDir, dirs, modulePath, pkg.Dir, entry.ID, ref, PackageFunctionDependency, !function.Exported, EdgeReasonFunctionParam)
 				}
 				for _, ref := range function.Results {
-					addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, pkg.Dir, entry.ID, ref, PackageFunctionDependency, !function.Exported)
+					addTypeRefEdges(edges, edgeReasons, registry, pkgByDir, dirs, modulePath, pkg.Dir, entry.ID, ref, PackageFunctionDependency, !function.Exported, EdgeReasonFunctionResult)
 				}
 			}
 		}
@@ -384,6 +438,7 @@ func BuildWithModulePath(pkgs []*gocode.Package, modulePath string) *Diagram {
 			e := e
 			edges[key] = &e
 		}
+		edgeReasons[key] |= EdgeReasonMethodSet
 	}
 
 	sortedEdges := make([]Edge, 0, len(edges))
@@ -401,7 +456,7 @@ func BuildWithModulePath(pkgs []*gocode.Package, modulePath string) *Diagram {
 		return a.To < b.To
 	})
 
-	return &Diagram{Root: root, Edges: sortedEdges}
+	return &Diagram{Root: root, Edges: sortedEdges, edgeReasons: edgeReasons}
 }
 
 // edgeKey identifies an (From, To, Kind) triple for deduplication.
@@ -413,36 +468,50 @@ type edgeKey struct {
 
 // addMethodEdges adds Dependency edges for every parameter and result
 // TypeRef of m.
-func addMethodEdges(edges map[edgeKey]*Edge, registry map[entryKey]*Entry, pkgByDir map[string]*gocode.Package, dirs []string, modulePath, fromDir, fromID string, m gocode.Method) {
+func addMethodEdges(edges map[edgeKey]*Edge, reasons map[edgeKey]EdgeReasons, registry map[entryKey]*Entry, pkgByDir map[string]*gocode.Package, dirs []string, modulePath, fromDir, fromID string, m gocode.Method) {
 	for _, ref := range m.Params {
-		addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, fromDir, fromID, ref, Dependency, !m.Exported)
+		addTypeRefEdges(edges, reasons, registry, pkgByDir, dirs, modulePath, fromDir, fromID, ref, Dependency, !m.Exported, EdgeReasonMethodParam)
 	}
 	for _, ref := range m.Results {
-		addTypeRefEdges(edges, registry, pkgByDir, dirs, modulePath, fromDir, fromID, ref, Dependency, !m.Exported)
+		addTypeRefEdges(edges, reasons, registry, pkgByDir, dirs, modulePath, fromDir, fromID, ref, Dependency, !m.Exported, EdgeReasonMethodResult)
 	}
 }
 
-func addTypeRefEdges(edges map[edgeKey]*Edge, registry map[entryKey]*Entry, pkgByDir map[string]*gocode.Package, dirs []string, modulePath, fromDir, fromID string, ref gocode.TypeRef, kind EdgeKind, unexported bool) {
-	addEdge(edges, registry, pkgByDir, dirs, modulePath, fromDir, fromID, ref, kind, unexported)
+func addTypeRefEdges(edges map[edgeKey]*Edge, reasons map[edgeKey]EdgeReasons, registry map[entryKey]*Entry, pkgByDir map[string]*gocode.Package, dirs []string, modulePath, fromDir, fromID string, ref gocode.TypeRef, kind EdgeKind, unexported bool, reason EdgeReasons) {
+	primaryReason := reason
+	if ref.IsMap {
+		primaryReason |= EdgeReasonMapValue
+	}
+	addEdge(edges, reasons, registry, pkgByDir, dirs, modulePath, fromDir, fromID, ref, kind, unexported, primaryReason)
 	relatedKind := Dependency
 	if kind == PackageFunctionDependency {
 		relatedKind = kind
 	}
 	for _, related := range ref.Related {
-		addEdge(edges, registry, pkgByDir, dirs, modulePath, fromDir, fromID, related, relatedKind, unexported)
+		relatedReason := reason
+		switch related.Relation {
+		case gocode.TypeRelationMapKey:
+			relatedReason |= EdgeReasonMapKey
+		case gocode.TypeRelationMapValue:
+			relatedReason |= EdgeReasonMapValue
+		case gocode.TypeRelationTypeArgument:
+			relatedReason |= EdgeReasonTypeArgument
+		}
+		addEdge(edges, reasons, registry, pkgByDir, dirs, modulePath, fromDir, fromID, related, relatedKind, unexported, relatedReason)
 	}
 }
 
 // addEdge resolves ref against the package rooted at fromDir and, if
 // it names another known Entry (and is not a self-reference), records
 // or merges an edge of the given kind from fromID to it.
-func addEdge(edges map[edgeKey]*Edge, registry map[entryKey]*Entry, pkgByDir map[string]*gocode.Package, dirs []string, modulePath, fromDir, fromID string, ref gocode.TypeRef, kind EdgeKind, unexported bool) {
+func addEdge(edges map[edgeKey]*Edge, reasons map[edgeKey]EdgeReasons, registry map[entryKey]*Entry, pkgByDir map[string]*gocode.Package, dirs []string, modulePath, fromDir, fromID string, ref gocode.TypeRef, kind EdgeKind, unexported bool, reason EdgeReasons) {
 	target, ok := resolveTypeRef(registry, pkgByDir, dirs, modulePath, fromDir, ref)
 	if !ok || target.ID == fromID {
 		return
 	}
 
 	key := edgeKey{From: fromID, To: target.ID, Kind: kind}
+	reasons[key] |= reason
 	if existing, ok := edges[key]; ok {
 		existing.Unexported = existing.Unexported && unexported
 		if ref.IsSlice || ref.IsMap {

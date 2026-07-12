@@ -25,6 +25,8 @@ type Options struct {
 	// MaxMembers limits each field, method, constant, and package-function
 	// list. Zero means unlimited.
 	MaxMembers int
+	// ShowEdgeReasons annotates relationships with their source constructs.
+	ShowEdgeReasons bool
 	// DisableFields omits every Entry's fields from the rendered class
 	// body (--disable-fields).
 	DisableFields bool

@@ -215,8 +215,7 @@ type TypeRef struct {
 	// ([N]T) of some element type.
 	IsSlice bool
 	// IsMap reports whether the reference is a map[K]V. PkgName/Name
-	// describe the value type V; the key type K is not separately
-	// modeled.
+	// describe the primary value type V; named key types are in Related.
 	IsMap bool
 	// IsPtr reports whether the reference is a pointer (*T) to some
 	// base type.
@@ -228,7 +227,19 @@ type TypeRef struct {
 	// Related holds additional named types nested inside this expression,
 	// such as a map key, generic argument, function parameter, or channel element.
 	Related []TypeRef
+	// Relation identifies this nested reference's role in its containing type.
+	Relation TypeRelation
 }
+
+// TypeRelation identifies why a nested type reference is related.
+type TypeRelation int
+
+const (
+	TypeRelationDirect TypeRelation = iota
+	TypeRelationMapKey
+	TypeRelationMapValue
+	TypeRelationTypeArgument
+)
 
 // Warning describes a file that Parse could not analyze, so that
 // callers can report it (e.g. to stderr) without aborting the rest of

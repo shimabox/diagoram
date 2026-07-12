@@ -33,6 +33,8 @@ type SummaryOptions struct {
 	MethodPatterns   []string
 	// ReceiverPatterns limits concrete methods by receiver base type name.
 	ReceiverPatterns []string
+	// ShowEdgeReasons annotates dependency targets with their source reasons.
+	ShowEdgeReasons bool
 }
 
 // entrySummaryMeta records the facts about an Entry that Summary needs
@@ -120,7 +122,7 @@ func Summary(d *Diagram, opt SummaryOptions) string {
 		}
 		if len(node.Entries) > 0 {
 			pkgCount++
-			blocks = append(blocks, renderSummaryBlock(node, metas, outgoing, implementedBy, opt))
+			blocks = append(blocks, renderSummaryBlock(node, d, metas, outgoing, implementedBy, opt))
 		}
 		for _, c := range node.Children {
 			walk(c)
@@ -164,7 +166,7 @@ func qualifiedSummaryName(m entrySummaryMeta, viewerDir string) string {
 
 // renderSummaryBlock renders one package directory's header line
 // followed by one aligned line per Entry declared directly in it.
-func renderSummaryBlock(node *PackageNode, metas map[string]entrySummaryMeta, outgoing map[string][]Edge, implementedBy map[string][]string, opt SummaryOptions) string {
+func renderSummaryBlock(node *PackageNode, d *Diagram, metas map[string]entrySummaryMeta, outgoing map[string][]Edge, implementedBy map[string][]string, opt SummaryOptions) string {
 	title := node.Path
 	if title == "" {
 		title = "."
@@ -192,7 +194,7 @@ func renderSummaryBlock(node *PackageNode, metas map[string]entrySummaryMeta, ou
 		} else if e.Kind == KindNamedType {
 			kindLabel = "(" + NamedTypeLabel(e.NamedType) + ")"
 		}
-		fmt.Fprintf(tw, "  %s\t%s\t%s\n", EntryDisplayName(e), kindLabel, summaryDetails(e, node.Path, metas, outgoing[e.ID], implementedBy[e.ID], opt))
+		fmt.Fprintf(tw, "  %s\t%s\t%s\n", EntryDisplayName(e), kindLabel, summaryDetails(e, d, node.Path, metas, outgoing[e.ID], implementedBy[e.ID], opt))
 	}
 	tw.Flush()
 
@@ -203,7 +205,7 @@ func renderSummaryBlock(node *PackageNode, metas map[string]entrySummaryMeta, ou
 // fields=/methods= counts (as enabled by opt), its outgoing
 // Dependency/Embedding targets, and its incoming Implementation
 // edges.
-func summaryDetails(e *Entry, ownerDir string, metas map[string]entrySummaryMeta, outEdges []Edge, implementers []string, opt SummaryOptions) string {
+func summaryDetails(e *Entry, d *Diagram, ownerDir string, metas map[string]entrySummaryMeta, outEdges []Edge, implementers []string, opt SummaryOptions) string {
 	var parts []string
 
 	if e.Kind == KindStruct {
@@ -260,7 +262,7 @@ func summaryDetails(e *Entry, ownerDir string, metas map[string]entrySummaryMeta
 		parts = append(parts, "methods="+strconv.Itoa(len(methods)))
 	}
 
-	if targets := sortedTargetNames(outEdges, ownerDir, metas); len(targets) > 0 {
+	if targets := sortedTargetNames(outEdges, d, ownerDir, metas, opt.ShowEdgeReasons); len(targets) > 0 {
 		parts = append(parts, "→ "+strings.Join(targets, ", "))
 	}
 	if len(implementers) > 0 {
@@ -272,19 +274,23 @@ func summaryDetails(e *Entry, ownerDir string, metas map[string]entrySummaryMeta
 // sortedTargetNames returns the sorted, deduplicated display names of
 // edges' targets, qualified as seen from ownerDir (see
 // qualifiedSummaryName).
-func sortedTargetNames(edges []Edge, ownerDir string, metas map[string]entrySummaryMeta) []string {
-	seen := map[string]bool{}
-	var names []string
+func sortedTargetNames(edges []Edge, d *Diagram, ownerDir string, metas map[string]entrySummaryMeta, showReasons bool) []string {
+	reasonsByName := map[string]EdgeReasons{}
 	for _, e := range edges {
 		to, ok := metas[e.To]
 		if !ok {
 			continue
 		}
 		name := qualifiedSummaryName(to, ownerDir)
-		if seen[name] {
-			continue
+		reasonsByName[name] |= d.ReasonsFor(e)
+	}
+	names := make([]string, 0, len(reasonsByName))
+	for name, reasons := range reasonsByName {
+		if showReasons {
+			if labels := EdgeReasonLabels(reasons); len(labels) > 0 {
+				name += " [" + strings.Join(labels, ",") + "]"
+			}
 		}
-		seen[name] = true
 		names = append(names, name)
 	}
 	sort.Strings(names)

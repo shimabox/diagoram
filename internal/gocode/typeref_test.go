@@ -93,8 +93,8 @@ func TestTypeRefFromExpr(t *testing.T) {
 			want: TypeRef{PkgName: "model", Name: "User", IsMap: true, String: "map[model.Key]model.User"},
 		},
 		{
-			// Generic instantiation: type args are kept in String but
-			// not used for dependency resolution.
+			// Generic instantiation: the base type is primary and type args
+			// are retained as related dependencies.
 			src:  "Box[int]",
 			want: TypeRef{Name: "Box", String: "Box[int]"},
 		},
@@ -163,5 +163,16 @@ func TestTypeRefFromExprRelatedDependencies(t *testing.T) {
 				t.Errorf("Related names = %v, want %v", names, tt.want)
 			}
 		})
+	}
+}
+
+func TestTypeRefFromExprRelatedRoles(t *testing.T) {
+	mapRef := typeRefFromExpr(parseTypeExpr(t, "map[Key]Value"))
+	if len(mapRef.Related) != 1 || mapRef.Related[0].Name != "Key" || mapRef.Related[0].Relation != TypeRelationMapKey {
+		t.Errorf("map related refs = %+v, want Key with map-key role", mapRef.Related)
+	}
+	genericRef := typeRefFromExpr(parseTypeExpr(t, "Box[Item]"))
+	if len(genericRef.Related) != 1 || genericRef.Related[0].Name != "Item" || genericRef.Related[0].Relation != TypeRelationTypeArgument {
+		t.Errorf("generic related refs = %+v, want Item with type-argument role", genericRef.Related)
 	}
 }

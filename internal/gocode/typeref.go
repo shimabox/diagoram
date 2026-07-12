@@ -39,54 +39,54 @@ func typeRefFromExpr(expr ast.Expr) TypeRef {
 
 func collectNamedTypeRefs(expr ast.Expr) []TypeRef {
 	var refs []TypeRef
-	var walk func(ast.Expr)
-	walk = func(current ast.Expr) {
+	var walk func(ast.Expr, TypeRelation)
+	walk = func(current ast.Expr, relation TypeRelation) {
 		switch e := current.(type) {
 		case *ast.ParenExpr:
-			walk(e.X)
+			walk(e.X, relation)
 		case *ast.StarExpr:
-			walk(e.X)
+			walk(e.X, relation)
 		case *ast.ArrayType:
-			walk(e.Elt)
+			walk(e.Elt, relation)
 		case *ast.Ellipsis:
-			walk(e.Elt)
+			walk(e.Elt, relation)
 		case *ast.MapType:
-			walk(e.Key)
-			walk(e.Value)
+			walk(e.Key, TypeRelationMapKey)
+			walk(e.Value, TypeRelationMapValue)
 		case *ast.IndexExpr:
-			walk(e.X)
-			walk(e.Index)
+			walk(e.X, relation)
+			walk(e.Index, TypeRelationTypeArgument)
 		case *ast.IndexListExpr:
-			walk(e.X)
+			walk(e.X, relation)
 			for _, index := range e.Indices {
-				walk(index)
+				walk(index, TypeRelationTypeArgument)
 			}
 		case *ast.SelectorExpr:
-			refs = append(refs, bareTypeRef(e))
+			refs = append(refs, bareTypeRef(e, relation))
 		case *ast.Ident:
 			if !isPredeclaredType(e.Name) {
-				refs = append(refs, bareTypeRef(e))
+				refs = append(refs, bareTypeRef(e, relation))
 			}
 		case *ast.FuncType:
-			walkFieldList(e.Params, walk)
-			walkFieldList(e.Results, walk)
+			walkFieldList(e.Params, func(expr ast.Expr) { walk(expr, relation) })
+			walkFieldList(e.Results, func(expr ast.Expr) { walk(expr, relation) })
 		case *ast.ChanType:
-			walk(e.Value)
+			walk(e.Value, relation)
 		case *ast.StructType:
 			if e.Fields != nil {
 				for _, field := range e.Fields.List {
-					walk(field.Type)
+					walk(field.Type, relation)
 				}
 			}
 		case *ast.InterfaceType:
 			if e.Methods != nil {
 				for _, method := range e.Methods.List {
-					walk(method.Type)
+					walk(method.Type, relation)
 				}
 			}
 		}
 	}
-	walk(expr)
+	walk(expr, TypeRelationDirect)
 	return refs
 }
 
@@ -99,9 +99,9 @@ func walkFieldList(fields *ast.FieldList, walk func(ast.Expr)) {
 	}
 }
 
-func bareTypeRef(expr ast.Expr) TypeRef {
+func bareTypeRef(expr ast.Expr, relation TypeRelation) TypeRef {
 	pkgName, name, isSlice, isMap, isPtr := decomposeType(expr)
-	return TypeRef{PkgName: pkgName, Name: name, IsSlice: isSlice, IsMap: isMap, IsPtr: isPtr, String: exprString(expr)}
+	return TypeRef{PkgName: pkgName, Name: name, IsSlice: isSlice, IsMap: isMap, IsPtr: isPtr, String: exprString(expr), Relation: relation}
 }
 
 var predeclaredTypes = map[string]bool{
@@ -118,8 +118,8 @@ func isPredeclaredType(name string) bool { return predeclaredTypes[name] }
 // generic-instantiation layers to find the underlying named type (or
 // package-qualified named type) it ultimately refers to.
 //
-// For map[K]V, only V (the value type) is decomposed; K is not
-// separately modeled in TypeRef.
+// For map[K]V, V becomes the primary reference. K is collected separately in
+// TypeRef.Related with a map-key role.
 //
 // Expressions with no single underlying name — anonymous structs,
 // function types, channel types, interface literals, and the like —

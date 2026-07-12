@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/shimabox/diagoram/internal/gocode"
 	"github.com/shimabox/diagoram/internal/testutil"
 )
 
@@ -114,4 +115,15 @@ func TestSummary_DisplayOptions(t *testing.T) {
 			t.Errorf("Summary(receiver filter) = %q, want interface methods preserved", got)
 		}
 	})
+}
+
+func TestSummaryShowsEdgeReasons(t *testing.T) {
+	pkgs, _, err := gocode.Parse(fixturesDir+"/edge-cases", gocode.ParseOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := Summary(Build(pkgs), SummaryOptions{ShowEdgeReasons: true})
+	if !strings.Contains(got, "Key [field,map-key]") {
+		t.Errorf("Summary(ShowEdgeReasons) = %q, want field and map-key reasons", got)
+	}
 }

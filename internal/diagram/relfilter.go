@@ -187,12 +187,15 @@ func rebuildFiltered(d *Diagram, keep map[string]bool) *Diagram {
 	}
 
 	var edges []Edge
+	reasons := map[edgeKey]EdgeReasons{}
 	for _, e := range d.Edges {
 		if keep[e.From] && keep[e.To] {
 			edges = append(edges, e)
+			key := edgeKey{From: e.From, To: e.To, Kind: e.Kind}
+			reasons[key] = d.ReasonsFor(e)
 		}
 	}
-	return &Diagram{Root: root, Edges: edges}
+	return &Diagram{Root: root, Edges: edges, edgeReasons: reasons}
 }
 
 // filterNode returns a copy of node retaining only its Entries in keep

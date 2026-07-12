@@ -716,6 +716,17 @@ func TestRunE2E_BuildContextProvenance(t *testing.T) {
 	}
 }
 
+func TestRunE2E_ShowEdgeReasons(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"--summary", "--show-edge-reasons", fixturesDir + "/edge-cases"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("Run exit code = %d, want 0 (stderr=%q)", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Key [field,map-key]") {
+		t.Errorf("stdout = %q, want field and map-key reasons", stdout.String())
+	}
+}
+
 // TestRunE2E_IncludeExclude exercises --include/--exclude end to end:
 // re-including *_test.go for the basic fixture must pull
 // ShouldBeExcludedByDefault (declared in basic_test.go) into the

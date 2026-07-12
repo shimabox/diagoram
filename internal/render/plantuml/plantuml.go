@@ -50,7 +50,7 @@ func (r *Renderer) Render(d *diagram.Diagram, opt render.Options) (string, error
 	}
 	lines := []string{"@startuml class-diagram"}
 	lines = append(lines, renderTree(d.Root, 1, opt)...)
-	lines = append(lines, renderEdges(d.Edges, opt)...)
+	lines = append(lines, renderEdges(d, opt)...)
 	lines = append(lines, "@enduml")
 	return strings.Join(lines, "\n") + "\n", nil
 }
@@ -321,9 +321,9 @@ func escapeQuoted(s string) string {
 //     the interface (skipped entirely when opt.DisableImplements is
 //     set), matching both Mermaid's own direction and the phase plan's
 //     worked example.
-func renderEdges(edges []diagram.Edge, opt render.Options) []string {
-	lines := make([]string, 0, len(edges))
-	for _, e := range edges {
+func renderEdges(d *diagram.Diagram, opt render.Options) []string {
+	lines := make([]string, 0, len(d.Edges))
+	for _, e := range d.Edges {
 		if e.Kind == diagram.Implementation && opt.DisableImplements {
 			continue
 		}
@@ -332,13 +332,14 @@ func renderEdges(edges []diagram.Edge, opt render.Options) []string {
 		}
 
 		var line string
+		var labels []string
 		switch e.Kind {
 		case diagram.Embedding:
 			line = e.To + " <|-- " + e.From
 		case diagram.Implementation:
 			line = e.From + " ..|> " + e.To
 			if e.PointerOnly {
-				line += " : pointer receiver"
+				labels = append(labels, "pointer receiver")
 			}
 		default: // diagram.Dependency
 			if e.ToCollection {
@@ -346,6 +347,12 @@ func renderEdges(edges []diagram.Edge, opt render.Options) []string {
 			} else {
 				line = e.From + " ..> " + e.To
 			}
+		}
+		if opt.ShowEdgeReasons {
+			labels = append(labels, diagram.EdgeReasonLabels(d.ReasonsFor(e))...)
+		}
+		if len(labels) > 0 {
+			line += " : " + strings.Join(labels, "; ")
 		}
 		lines = append(lines, indentUnit+line)
 	}

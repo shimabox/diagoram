@@ -13,9 +13,21 @@ import (
 const fixturesDir = "../../../testdata/fixtures"
 
 func TestRenderEdgesLabelsPointerOnlyImplementations(t *testing.T) {
-	lines := renderEdges([]diagram.Edge{{From: "Pointer", To: "Runner", Kind: diagram.Implementation, PointerOnly: true}}, render.Options{})
+	d := &diagram.Diagram{Edges: []diagram.Edge{{From: "Pointer", To: "Runner", Kind: diagram.Implementation, PointerOnly: true}}}
+	lines := renderEdges(d, render.Options{})
 	if got := strings.Join(lines, "\n"); !strings.Contains(got, "pointer receiver") {
 		t.Fatalf("renderEdges() = %q, want pointer receiver label", got)
+	}
+}
+
+func TestRenderEdgesShowsSourceReasons(t *testing.T) {
+	d := build(t, fixturesDir+"/edge-cases")
+	got, err := New().Render(d, render.Options{ShowEdgeReasons: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(got, "Wrapper ..> Key : field; map-key") {
+		t.Errorf("Render(ShowEdgeReasons) = %q, want field and map-key reasons", got)
 	}
 }
 

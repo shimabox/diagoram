@@ -75,6 +75,8 @@ Options:
                       implements interface" relationships. Only
                       affects --class-diagram (and --summary); ignored
                       otherwise.
+  --show-edge-reasons Annotate class-diagram edges and summary dependencies
+                      with source reasons such as field or map-key.
   --rel-target='A,B'  Only include types reachable from these names
                       (comma-separated; a bare type name such as
                       "Product", or "pkg.Type" such as
@@ -165,6 +167,8 @@ type Options struct {
 	// edges from a class diagram/summary (--disable-implements). It
 	// only affects those; harmless otherwise.
 	DisableImplements bool
+	// ShowEdgeReasons annotates relationships with source constructs.
+	ShowEdgeReasons bool
 	// Summary requests a plain-text summary instead of a diagram
 	// (--summary). It cannot be combined with PackageDiagram.
 	Summary bool
@@ -254,6 +258,7 @@ func parseArgs(args []string, stderr io.Writer) (*Options, error) {
 	fs.BoolVar(&opts.DisableFields, "disable-fields", false, "do not draw fields in the class diagram")
 	fs.BoolVar(&opts.DisableMethods, "disable-methods", false, "do not draw methods in the class diagram")
 	fs.BoolVar(&opts.DisableImplements, "disable-implements", false, "do not draw heuristically detected interface implementations")
+	fs.BoolVar(&opts.ShowEdgeReasons, "show-edge-reasons", false, "annotate relationships with their source constructs")
 	fs.BoolVar(&opts.Summary, "summary", false, "print a plain-text summary of the analyzed types instead of a diagram")
 	fs.IntVar(&opts.RelTargetDepth, "rel-target-depth", 1, "with --rel-target, how many hops of edges to follow from the target types")
 	fs.Func("rel-target", "only include types reachable from these names (comma-separated; type name or pkg.Type; repeatable)", func(v string) error {
@@ -485,6 +490,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 				FunctionPatterns:  opts.FunctionPatterns,
 				MethodPatterns:    opts.MethodPatterns,
 				ReceiverPatterns:  opts.ReceiverPatterns,
+				ShowEdgeReasons:   opts.ShowEdgeReasons,
 			})
 		} else {
 			out, err = renderer.Render(d, render.Options{
@@ -498,6 +504,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 				MethodPatterns:    opts.MethodPatterns,
 				ReceiverPatterns:  opts.ReceiverPatterns,
 				MaxMembers:        opts.MaxMembers,
+				ShowEdgeReasons:   opts.ShowEdgeReasons,
 			})
 			if err != nil {
 				fmt.Fprintf(stderr, "Error: cannot render diagram: %v\n", err)

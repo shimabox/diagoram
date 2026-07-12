@@ -39,7 +39,7 @@ func (r *Renderer) Render(d *diagram.Diagram, opt render.Options) (string, error
 	}
 	lines := []string{"classDiagram"}
 	lines = append(lines, renderTree(d.Root, opt)...)
-	lines = append(lines, renderEdges(d.Edges, opt)...)
+	lines = append(lines, renderEdges(d, opt)...)
 	return strings.Join(lines, "\n") + "\n", nil
 }
 
@@ -268,9 +268,9 @@ func visibility(exported bool) string {
 // for multiplicity), Embedding edges use "--|>", and Implementation
 // edges use "..|>" (skipped entirely when opt.DisableImplements is
 // set).
-func renderEdges(edges []diagram.Edge, opt render.Options) []string {
-	lines := make([]string, 0, len(edges))
-	for _, e := range edges {
+func renderEdges(d *diagram.Diagram, opt render.Options) []string {
+	lines := make([]string, 0, len(d.Edges))
+	for _, e := range d.Edges {
 		if e.Kind == diagram.Implementation && opt.DisableImplements {
 			continue
 		}
@@ -285,11 +285,18 @@ func renderEdges(edges []diagram.Edge, opt render.Options) []string {
 			arrow = "..|>"
 		}
 		line := indentUnit + e.From + " " + arrow + " " + e.To
+		var labels []string
 		if e.Kind == diagram.Implementation && e.PointerOnly {
-			line += ` : pointer receiver`
+			labels = append(labels, "pointer receiver")
 		}
 		if (e.Kind == diagram.Dependency || e.Kind == diagram.PackageFunctionDependency) && e.ToCollection {
-			line += ` : *`
+			labels = append(labels, "*")
+		}
+		if opt.ShowEdgeReasons {
+			labels = append(labels, diagram.EdgeReasonLabels(d.ReasonsFor(e))...)
+		}
+		if len(labels) > 0 {
+			line += " : " + strings.Join(labels, "; ")
 		}
 		lines = append(lines, line)
 	}
