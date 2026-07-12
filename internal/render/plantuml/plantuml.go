@@ -127,6 +127,7 @@ func renderClass(e *diagram.Entry, depth int, opt render.Options) []string {
 			functions = diagram.ExportedFunctions(functions)
 		}
 		functions = diagram.FilterFunctionsByName(functions, opt.FunctionPatterns)
+		functions, omitted := diagram.LimitMembers(functions, opt.MaxMembers)
 		if len(functions) == 0 {
 			return nil
 		}
@@ -135,7 +136,11 @@ func renderClass(e *diagram.Entry, depth int, opt render.Options) []string {
 		for _, function := range functions {
 			lines = append(lines, memberIndent+functionLine(function))
 		}
-		return append(lines, indent+"}")
+		lines = append(lines, indent+"}")
+		if omitted > 0 {
+			lines = append(lines, omissionNote(indent, e.ID, fmt.Sprintf("%d functions omitted", omitted)))
+		}
+		return lines
 	}
 
 	keyword := "class"
@@ -148,11 +153,14 @@ func renderClass(e *diagram.Entry, depth int, opt render.Options) []string {
 	}
 
 	fields, methods := visibleMembers(e, opt)
+	fields, omittedFields := diagram.LimitMembers(fields, opt.MaxMembers)
+	methods, omittedMethods := diagram.LimitMembers(methods, opt.MaxMembers)
 	if e.Kind != diagram.KindNamedType && len(fields) == 0 && len(methods) == 0 {
 		return []string{header}
 	}
 
 	lines := []string{header + " {"}
+	var omissions []string
 	if e.Kind == diagram.KindNamedType {
 		lines = append(lines, memberIndent+"type : "+safeType(e.NamedType.Underlying.String))
 		if opt.ShowConstants {
@@ -160,8 +168,13 @@ func renderClass(e *diagram.Entry, depth int, opt render.Options) []string {
 			if opt.HideUnexported {
 				constants = diagram.ExportedConstants(constants)
 			}
+			var omitted int
+			constants, omitted = diagram.LimitMembers(constants, opt.MaxMembers)
 			for _, constant := range constants {
 				lines = append(lines, memberIndent+visibility(constant.Exported)+constant.Name)
+			}
+			if omitted > 0 {
+				omissions = append(omissions, fmt.Sprintf("%d constants omitted", omitted))
 			}
 		}
 	}
@@ -171,8 +184,21 @@ func renderClass(e *diagram.Entry, depth int, opt render.Options) []string {
 	for _, m := range methods {
 		lines = append(lines, memberIndent+methodLine(m))
 	}
+	if omittedFields > 0 {
+		omissions = append(omissions, fmt.Sprintf("%d fields omitted", omittedFields))
+	}
+	if omittedMethods > 0 {
+		omissions = append(omissions, fmt.Sprintf("%d methods omitted", omittedMethods))
+	}
 	lines = append(lines, indent+"}")
+	if len(omissions) > 0 {
+		lines = append(lines, omissionNote(indent, e.ID, strings.Join(omissions, "; ")))
+	}
 	return lines
+}
+
+func omissionNote(indent, id, text string) string {
+	return fmt.Sprintf("%snote right of %s : %s", indent, id, text)
 }
 
 // visibleMembers returns e's fields and methods after applying opt:

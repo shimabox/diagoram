@@ -114,6 +114,15 @@ func matchesNamePattern(name string, patterns []string) bool {
 	return false
 }
 
+// LimitMembers returns at most max values and the number omitted. A max of
+// zero or less is treated as unlimited.
+func LimitMembers[T any](values []T, max int) ([]T, int) {
+	if max <= 0 || len(values) <= max {
+		return values, 0
+	}
+	return values[:max], len(values) - max
+}
+
 // ExportedConstants returns the subset of constants whose names are exported.
 func ExportedConstants(constants []gocode.Constant) []gocode.Constant {
 	var out []gocode.Constant

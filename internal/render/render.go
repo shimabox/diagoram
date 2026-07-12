@@ -20,6 +20,9 @@ type Options struct {
 	// FunctionPatterns and MethodPatterns limit displayed members by name.
 	FunctionPatterns []string
 	MethodPatterns   []string
+	// MaxMembers limits each field, method, constant, and package-function
+	// list. Zero means unlimited.
+	MaxMembers int
 	// DisableFields omits every Entry's fields from the rendered class
 	// body (--disable-fields).
 	DisableFields bool

@@ -147,6 +147,29 @@ func TestRender_DisplayOptions(t *testing.T) {
 			t.Errorf("Render(member filters) = %q, want only matching functions and methods", got)
 		}
 	})
+
+	t.Run("max-members truncates each category and reports omissions", func(t *testing.T) {
+		got, err := New().Render(basic, render.Options{ShowFunctions: true, MaxMembers: 1})
+		if err != nil {
+			t.Fatalf("Render: %v", err)
+		}
+		for _, want := range []string{"1 functions omitted", "2 fields omitted", "2 methods omitted"} {
+			if !strings.Contains(got, want) {
+				t.Errorf("Render(MaxMembers) = %q, want %q", got, want)
+			}
+		}
+	})
+
+	t.Run("max-members limits constants", func(t *testing.T) {
+		named := build(t, fixturesDir+"/named-types")
+		got, err := New().Render(named, render.Options{ShowConstants: true, MaxMembers: 1})
+		if err != nil {
+			t.Fatalf("Render: %v", err)
+		}
+		if !strings.Contains(got, "3 constants omitted") {
+			t.Errorf("Render(MaxMembers constants) = %q, want omission note", got)
+		}
+	})
 }
 
 func TestRender_HideUnexportedTypes(t *testing.T) {

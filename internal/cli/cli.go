@@ -58,6 +58,8 @@ Options:
   --function='glob'   Only show package functions whose name matches glob.
                       Repeatable; implies --show-functions for class diagrams.
   --method='glob'     Only show methods whose name matches glob. Repeatable.
+  --max-members=N     Show at most N fields, methods, constants, and package
+                      functions per entry. Omitted counts are reported.
   --disable-fields    Do not draw fields in the class diagram. Only
                       affects --class-diagram (and --summary); ignored
                       otherwise.
@@ -139,6 +141,8 @@ type Options struct {
 	// FunctionPatterns and MethodPatterns contain repeatable member-name globs.
 	FunctionPatterns []string
 	MethodPatterns   []string
+	// MaxMembers limits each displayed member category. Zero is unlimited.
+	MaxMembers int
 	// DisableFields omits fields from a class diagram/summary
 	// (--disable-fields). It only affects those; harmless otherwise.
 	DisableFields bool
@@ -220,6 +224,7 @@ func parseArgs(args []string, stderr io.Writer) (*Options, error) {
 		opts.MethodPatterns = append(opts.MethodPatterns, v)
 		return nil
 	})
+	fs.IntVar(&opts.MaxMembers, "max-members", 0, "maximum members shown per category (0 means unlimited)")
 	fs.BoolVar(&opts.DisableFields, "disable-fields", false, "do not draw fields in the class diagram")
 	fs.BoolVar(&opts.DisableMethods, "disable-methods", false, "do not draw methods in the class diagram")
 	fs.BoolVar(&opts.DisableImplements, "disable-implements", false, "do not draw heuristically detected interface implementations")
@@ -337,6 +342,10 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "Error: --summary and --package-diagram cannot be used together. --summary only describes the class diagram's types.\n\n%s", usage)
 		return 1
 	}
+	if opts.MaxMembers < 0 {
+		fmt.Fprintf(stderr, "Error: --max-members must be zero or greater.\n\n%s", usage)
+		return 1
+	}
 
 	renderer, formatErr := selectRenderer(opts.Format)
 	if formatErr != nil {
@@ -437,6 +446,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 				DisableImplements: opts.DisableImplements,
 				FunctionPatterns:  opts.FunctionPatterns,
 				MethodPatterns:    opts.MethodPatterns,
+				MaxMembers:        opts.MaxMembers,
 			})
 			if err != nil {
 				fmt.Fprintf(stderr, "Error: cannot render diagram: %v\n", err)

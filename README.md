@@ -93,6 +93,7 @@ docker run --rm -v "$PWD:/work" plantuml/plantuml -tsvg /work/diagram.puml
 | `--show-functions` | package-level functionをクラス図に表示 |
 | `--function='glob'` | 表示するpackage-level functionを名前で絞る。複数指定可 |
 | `--method='glob'` | 表示するmethodを名前で絞る。複数指定可 |
+| `--max-members=N` | fields、methods、constants、functionsを種類ごとに最大N件表示 |
 | `--public-api` | 非公開identifierとinternal・example・test・benchmark packageを除外 |
 | `--disable-fields` | フィールドを描画しない |
 | `--disable-methods` | メソッドを描画しない |

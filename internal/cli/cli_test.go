@@ -195,6 +195,12 @@ func TestRun(t *testing.T) {
 			wantCode:      1,
 			wantStderrHas: "build tag must not be empty",
 		},
+		{
+			name:          "negative max-members is rejected",
+			args:          []string{"--max-members=-1", fixturesDir + "/basic"},
+			wantCode:      1,
+			wantStderrHas: "--max-members must be zero or greater",
+		},
 	}
 
 	for _, tt := range tests {
@@ -523,6 +529,20 @@ func TestRunE2E_MemberNameFilters(t *testing.T) {
 	for _, unwanted := range []string{"newInternalProduct", "Discount(", "restock("} {
 		if strings.Contains(got, unwanted) {
 			t.Errorf("stdout = %q, do not want %q", got, unwanted)
+		}
+	}
+}
+
+func TestRunE2E_MaxMembers(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"--show-functions", "--max-members=1", fixturesDir + "/basic"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("Run exit code = %d, want 0 (stderr=%q)", code, stderr.String())
+	}
+	got := stdout.String()
+	for _, want := range []string{"1 functions omitted", "2 fields omitted", "2 methods omitted"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("stdout = %q, want omission note %q", got, want)
 		}
 	}
 }
