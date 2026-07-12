@@ -28,6 +28,9 @@ type SummaryOptions struct {
 	// ("implements: ...") from every interface's line
 	// (--disable-implements).
 	DisableImplements bool
+	// FunctionPatterns and MethodPatterns limit displayed members by name.
+	FunctionPatterns []string
+	MethodPatterns   []string
 }
 
 // entrySummaryMeta records the facts about an Entry that Summary needs
@@ -77,7 +80,11 @@ func Summary(d *Diagram, opt SummaryOptions) string {
 			if !ok || !ok2 {
 				continue
 			}
-			implementedBy[e.To] = append(implementedBy[e.To], qualifiedSummaryName(from, to.dir))
+			name := qualifiedSummaryName(from, to.dir)
+			if e.PointerOnly {
+				name = "*" + name
+			}
+			implementedBy[e.To] = append(implementedBy[e.To], name)
 			continue
 		}
 		outgoing[e.From] = append(outgoing[e.From], e)
@@ -105,6 +112,7 @@ func Summary(d *Diagram, opt SummaryOptions) string {
 				if opt.HideUnexported {
 					functions = ExportedFunctions(functions)
 				}
+				functions = FilterFunctionsByName(functions, opt.FunctionPatterns)
 				functionCount += len(functions)
 			}
 		}
@@ -170,6 +178,7 @@ func renderSummaryBlock(node *PackageNode, metas map[string]entrySummaryMeta, ou
 			if opt.HideUnexported {
 				functions = ExportedFunctions(functions)
 			}
+			functions = FilterFunctionsByName(functions, opt.FunctionPatterns)
 			if len(functions) > 0 {
 				fmt.Fprintf(tw, "  package functions\tcount=%d\n", len(functions))
 			}
@@ -181,7 +190,7 @@ func renderSummaryBlock(node *PackageNode, metas map[string]entrySummaryMeta, ou
 		} else if e.Kind == KindNamedType {
 			kindLabel = "(" + NamedTypeLabel(e.NamedType) + ")"
 		}
-		fmt.Fprintf(tw, "  %s\t%s\t%s\n", e.Name, kindLabel, summaryDetails(e, node.Path, metas, outgoing[e.ID], implementedBy[e.ID], opt))
+		fmt.Fprintf(tw, "  %s\t%s\t%s\n", EntryDisplayName(e), kindLabel, summaryDetails(e, node.Path, metas, outgoing[e.ID], implementedBy[e.ID], opt))
 	}
 	tw.Flush()
 
@@ -202,6 +211,7 @@ func summaryDetails(e *Entry, ownerDir string, metas map[string]entrySummaryMeta
 			fields = ExportedFields(fields)
 			methods = ExportedMethods(methods)
 		}
+		methods = FilterMethodsByName(methods, opt.MethodPatterns)
 		var counts []string
 		if !opt.DisableFields {
 			counts = append(counts, "fields="+strconv.Itoa(len(fields)))
@@ -230,6 +240,7 @@ func summaryDetails(e *Entry, ownerDir string, metas map[string]entrySummaryMeta
 			if opt.HideUnexported {
 				methods = ExportedMethods(methods)
 			}
+			methods = FilterMethodsByName(methods, opt.MethodPatterns)
 			parts = append(parts, "methods="+strconv.Itoa(len(methods)))
 		}
 	} else if e.Kind == KindInterface && !opt.DisableMethods {
@@ -237,6 +248,7 @@ func summaryDetails(e *Entry, ownerDir string, metas map[string]entrySummaryMeta
 		if opt.HideUnexported {
 			methods = ExportedMethods(methods)
 		}
+		methods = FilterMethodsByName(methods, opt.MethodPatterns)
 		parts = append(parts, "methods="+strconv.Itoa(len(methods)))
 	}
 

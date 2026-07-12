@@ -196,6 +196,11 @@ func matchAnyPath(patterns []string, name string) bool {
 		if ok, err := pathpkg.Match(pattern, name); err == nil && ok {
 			return true
 		}
+		if !strings.Contains(pattern, "/") {
+			if ok, err := pathpkg.Match(pattern, pathpkg.Base(name)); err == nil && ok {
+				return true
+			}
+		}
 	}
 	return false
 }

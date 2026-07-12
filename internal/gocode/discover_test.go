@@ -151,11 +151,12 @@ func TestDiscoverDirsSkipsEmptyDirs(t *testing.T) {
 func TestDiscoverDirsCustomDirectoryExcludes(t *testing.T) {
 	dir := t.TempDir()
 	writeFiles(t, dir, map[string]string{
-		"root.go":                 "package root\n",
-		"examples/demo/main.go":   "package main\n",
-		"pkg/keep.go":             "package pkg\n",
-		"pkg/generated/code.go":   "package generated\n",
-		"other/generated/code.go": "package generated\n",
+		"root.go":                   "package root\n",
+		"examples/demo/main.go":     "package main\n",
+		"pkg/deep/examples/main.go": "package main\n",
+		"pkg/keep.go":               "package pkg\n",
+		"pkg/generated/code.go":     "package generated\n",
+		"other/generated/code.go":   "package generated\n",
 	})
 
 	got, err := discoverDirs(dir, ParseOptions{ExcludeDirs: []string{"examples", "*/generated"}})

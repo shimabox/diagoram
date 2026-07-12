@@ -46,13 +46,18 @@ Options:
                       library, other modules) as light-colored nodes.
                       Only affects --package-diagram; ignored
                       otherwise.
-	  --hide-unexported   Hide unexported types, fields, and methods. Only affects
-	                      --class-diagram (and --summary); ignored
-	                      otherwise.
-	  --show-constants    Show constants associated with named types in
-	                      class diagrams. Ignored otherwise.
-	  --show-functions    Show package-level functions in a synthetic class.
-	                      Only affects class diagrams.
+  --public-api        Focus on externally importable API. Hides unexported
+                      identifiers and excludes conventional internal,
+                      example, test, and benchmark directories.
+  --hide-unexported   Hide unexported types, fields, and methods. Only affects
+                      --class-diagram (and --summary); ignored otherwise.
+  --show-constants    Show constants associated with named types in
+                      class diagrams. Ignored otherwise.
+  --show-functions    Show package-level functions in a synthetic class.
+                      Only affects class diagrams.
+  --function='glob'   Only show package functions whose name matches glob.
+                      Repeatable; implies --show-functions for class diagrams.
+  --method='glob'     Only show methods whose name matches glob. Repeatable.
   --disable-fields    Do not draw fields in the class diagram. Only
                       affects --class-diagram (and --summary); ignored
                       otherwise.
@@ -79,18 +84,18 @@ Options:
                       --package-diagram.
   --include='glob'    Only analyze files matching glob (repeatable;
                       default "*.go")
-	  --exclude='glob'    Skip files matching glob (repeatable; default
-	                      "*_test.go"; repeating --exclude replaces the
-	                      default rather than adding to it)
-	  --exclude-dir='glob'
-	                      Skip directories whose slash-separated path,
-	                      relative to <dir>, matches glob (repeatable)
-	  --goos=GOOS         Analyze files selected for GOOS. Enables build
-	                      constraint filtering.
-	  --goarch=GOARCH     Analyze files selected for GOARCH. Enables build
-	                      constraint filtering.
-	  --build-tag=tag     Add a satisfied build tag (repeatable). Enables
-	                      build constraint filtering.
+  --exclude='glob'    Skip files matching glob (repeatable; default
+                      "*_test.go"; repeating --exclude replaces the
+                      default rather than adding to it)
+  --exclude-dir='glob'
+                      Skip directories whose relative path or base name
+                      matches glob (repeatable)
+  --goos=GOOS         Analyze files selected for GOOS. Enables build
+                      constraint filtering.
+  --goarch=GOARCH     Analyze files selected for GOARCH. Enables build
+                      constraint filtering.
+  --build-tag=tag     Add a satisfied build tag (repeatable). Enables
+                      build constraint filtering.
   -h, --help          Show this help message and exit
   -v, --version       Show version information and exit
 `
@@ -122,10 +127,15 @@ type Options struct {
 	// HideUnexported hides unexported fields/methods (--hide-unexported).
 	// It only affects a class diagram/summary; harmless otherwise.
 	HideUnexported bool
+	// PublicAPI enables the externally importable API preset.
+	PublicAPI bool
 	// ShowConstants includes named-type constants in class diagrams.
 	ShowConstants bool
 	// ShowFunctions includes package-level functions in class diagrams.
 	ShowFunctions bool
+	// FunctionPatterns and MethodPatterns contain repeatable member-name globs.
+	FunctionPatterns []string
+	MethodPatterns   []string
 	// DisableFields omits fields from a class diagram/summary
 	// (--disable-fields). It only affects those; harmless otherwise.
 	DisableFields bool
@@ -187,9 +197,24 @@ func parseArgs(args []string, stderr io.Writer) (*Options, error) {
 	fs.BoolVar(&opts.PackageDiagram, "package-diagram", false, "output a package dependency diagram")
 	fs.StringVar(&opts.Format, "format", "mermaid", `output format: "mermaid" or "plantuml"`)
 	fs.BoolVar(&opts.ShowExternal, "show-external", false, "also draw packages outside <dir> in the package diagram")
+	fs.BoolVar(&opts.PublicAPI, "public-api", false, "focus on externally importable API")
 	fs.BoolVar(&opts.HideUnexported, "hide-unexported", false, "hide unexported types, fields, and methods")
 	fs.BoolVar(&opts.ShowConstants, "show-constants", false, "show constants associated with named types")
 	fs.BoolVar(&opts.ShowFunctions, "show-functions", false, "show package-level functions in a synthetic class")
+	fs.Func("function", "only show package functions matching this name glob (repeatable)", func(v string) error {
+		if _, err := pathpkg.Match(v, ""); err != nil {
+			return fmt.Errorf("invalid function glob %q: %w", v, err)
+		}
+		opts.FunctionPatterns = append(opts.FunctionPatterns, v)
+		return nil
+	})
+	fs.Func("method", "only show methods matching this name glob (repeatable)", func(v string) error {
+		if _, err := pathpkg.Match(v, ""); err != nil {
+			return fmt.Errorf("invalid method glob %q: %w", v, err)
+		}
+		opts.MethodPatterns = append(opts.MethodPatterns, v)
+		return nil
+	})
 	fs.BoolVar(&opts.DisableFields, "disable-fields", false, "do not draw fields in the class diagram")
 	fs.BoolVar(&opts.DisableMethods, "disable-methods", false, "do not draw methods in the class diagram")
 	fs.BoolVar(&opts.DisableImplements, "disable-implements", false, "do not draw heuristically detected interface implementations")
@@ -326,10 +351,20 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
+	if opts.PublicAPI {
+		opts.HideUnexported = true
+	}
+	if len(opts.FunctionPatterns) > 0 {
+		opts.ShowFunctions = true
+	}
+	excludeDirs := append([]string(nil), opts.ExcludeDirs...)
+	if opts.PublicAPI {
+		excludeDirs = append(excludeDirs, "internal", "tests", "example", "examples", "_examples", "benchmark")
+	}
 	parseOptions := gocode.ParseOptions{
 		Includes:    opts.Include,
 		Excludes:    opts.Exclude,
-		ExcludeDirs: opts.ExcludeDirs,
+		ExcludeDirs: excludeDirs,
 	}
 	if opts.GOOS != "" || opts.GOARCH != "" || len(opts.BuildTags) > 0 {
 		parseOptions.BuildContext = &gocode.BuildContext{GOOS: opts.GOOS, GOARCH: opts.GOARCH, Tags: opts.BuildTags}
@@ -376,6 +411,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 				DisableFields:     opts.DisableFields,
 				DisableMethods:    opts.DisableMethods,
 				DisableImplements: opts.DisableImplements,
+				FunctionPatterns:  opts.FunctionPatterns,
+				MethodPatterns:    opts.MethodPatterns,
 			})
 		} else {
 			out, err = renderer.Render(d, render.Options{
@@ -385,6 +422,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 				DisableFields:     opts.DisableFields,
 				DisableMethods:    opts.DisableMethods,
 				DisableImplements: opts.DisableImplements,
+				FunctionPatterns:  opts.FunctionPatterns,
+				MethodPatterns:    opts.MethodPatterns,
 			})
 			if err != nil {
 				fmt.Fprintf(stderr, "Error: cannot render diagram: %v\n", err)

@@ -1,6 +1,13 @@
 package diagram
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/shimabox/diagoram/internal/gocode"
+)
 
 // TestBuild_Implements exercises Phase 5A's interface implementation
 // heuristic end to end (via Build, not buildImplementationEdges
@@ -43,5 +50,49 @@ func TestBuild_Implements(t *testing.T) {
 		if got[i] != w {
 			t.Errorf("Implementation edges[%d] = %+v, want %+v", i, got[i], w)
 		}
+	}
+}
+
+func TestBuild_ImplementsDistinguishesPointerMethodSets(t *testing.T) {
+	dir := t.TempDir()
+	source := `package sample
+type Runner interface { Run() }
+type Value struct{}
+func (Value) Run() {}
+type Pointer struct{}
+func (*Pointer) Run() {}
+type EmbeddedValue struct{ Pointer }
+type EmbeddedPointer struct{ *Pointer }
+type Code int
+func (*Code) Run() {}
+`
+	if err := os.WriteFile(filepath.Join(dir, "sample.go"), []byte(source), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	pkgs, warnings, err := gocode.Parse(dir, gocode.ParseOptions{})
+	if err != nil || len(warnings) != 0 {
+		t.Fatalf("Parse() error = %v, warnings = %+v", err, warnings)
+	}
+	d := Build(pkgs)
+	got := map[string]bool{}
+	for _, edge := range d.Edges {
+		if edge.Kind == Implementation && edge.To == "Runner" {
+			got[edge.From] = edge.PointerOnly
+		}
+	}
+	want := map[string]bool{
+		"Value": false, "Pointer": true, "EmbeddedValue": true,
+		"EmbeddedPointer": false, "Code": true,
+	}
+	if len(got) != len(want) {
+		t.Fatalf("Runner implementation edges = %+v, want %+v", got, want)
+	}
+	for name, pointerOnly := range want {
+		if gotPointerOnly, ok := got[name]; !ok || gotPointerOnly != pointerOnly {
+			t.Errorf("Runner edge from %s = (%v, %v), want pointerOnly=%v", name, gotPointerOnly, ok, pointerOnly)
+		}
+	}
+	if summary := Summary(d, SummaryOptions{}); !strings.Contains(summary, "*Pointer") || !strings.Contains(summary, "EmbeddedPointer") {
+		t.Errorf("Summary() = %q, want pointer-only and value implementers to be distinguishable", summary)
 	}
 }

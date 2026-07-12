@@ -126,6 +126,7 @@ func renderClass(e *diagram.Entry, depth int, opt render.Options) []string {
 		if opt.HideUnexported {
 			functions = diagram.ExportedFunctions(functions)
 		}
+		functions = diagram.FilterFunctionsByName(functions, opt.FunctionPatterns)
 		if len(functions) == 0 {
 			return nil
 		}
@@ -141,7 +142,7 @@ func renderClass(e *diagram.Entry, depth int, opt render.Options) []string {
 	if e.Kind == diagram.KindInterface {
 		keyword = "interface"
 	}
-	header := fmt.Sprintf(`%s%s "%s%s" as %s`, indent, keyword, e.Name, docSummary(e.Doc), e.ID)
+	header := fmt.Sprintf(`%s%s "%s%s" as %s`, indent, keyword, diagram.EntryDisplayName(e), docSummary(e.Doc), e.ID)
 	if e.Kind == diagram.KindNamedType {
 		header += " <<" + diagram.NamedTypeLabel(e.NamedType) + ">>"
 	}
@@ -196,6 +197,7 @@ func visibleMembers(e *diagram.Entry, opt render.Options) ([]gocode.Field, []goc
 		if opt.HideUnexported {
 			methods = diagram.ExportedMethods(methods)
 		}
+		methods = diagram.FilterMethodsByName(methods, opt.MethodPatterns)
 	}
 	return fields, methods
 }
@@ -306,6 +308,9 @@ func renderEdges(edges []diagram.Edge, opt render.Options) []string {
 			line = e.To + " <|-- " + e.From
 		case diagram.Implementation:
 			line = e.From + " ..|> " + e.To
+			if e.PointerOnly {
+				line += " : pointer receiver"
+			}
 		default: // diagram.Dependency
 			if e.ToCollection {
 				line = fmt.Sprintf(`%s "1" ..> "*" %s`, e.From, e.To)

@@ -12,6 +12,13 @@ import (
 
 const fixturesDir = "../../../testdata/fixtures"
 
+func TestRenderEdgesLabelsPointerOnlyImplementations(t *testing.T) {
+	lines := renderEdges([]diagram.Edge{{From: "Pointer", To: "Runner", Kind: diagram.Implementation, PointerOnly: true}}, render.Options{})
+	if got := strings.Join(lines, "\n"); !strings.Contains(got, "pointer receiver") {
+		t.Fatalf("renderEdges() = %q, want pointer receiver label", got)
+	}
+}
+
 // build parses dir (ignoring any warnings, e.g. edge-cases/broken.go's
 // intentional syntax error, which gocode already covers) and builds
 // its Diagram.
@@ -128,6 +135,16 @@ func TestRender_DisplayOptions(t *testing.T) {
 		}
 		if !strings.Contains(got, "Point <|-- Circle") {
 			t.Errorf("Render(DisableImplements) = %q, want the Embedding edge to remain", got)
+		}
+	})
+
+	t.Run("member name filters keep matching functions and methods", func(t *testing.T) {
+		got, err := New().Render(basic, render.Options{ShowFunctions: true, FunctionPatterns: []string{"New*"}, MethodPatterns: []string{"Stock"}})
+		if err != nil {
+			t.Fatalf("Render: %v", err)
+		}
+		if !strings.Contains(got, "NewProduct") || !strings.Contains(got, "Stock()") || strings.Contains(got, "Discount(") || strings.Contains(got, "newInternalProduct") {
+			t.Errorf("Render(member filters) = %q, want only matching functions and methods", got)
 		}
 	})
 }

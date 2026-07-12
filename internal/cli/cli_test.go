@@ -2,6 +2,8 @@ package cli
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -168,6 +170,18 @@ func TestRun(t *testing.T) {
 			args:          []string{"--exclude-dir=[", fixturesDir + "/basic"},
 			wantCode:      1,
 			wantStderrHas: "invalid exclude-dir glob",
+		},
+		{
+			name:          "malformed function glob is rejected",
+			args:          []string{"--function=[", fixturesDir + "/basic"},
+			wantCode:      1,
+			wantStderrHas: "invalid function glob",
+		},
+		{
+			name:          "malformed method glob is rejected",
+			args:          []string{"--method=[", fixturesDir + "/basic"},
+			wantCode:      1,
+			wantStderrHas: "invalid method glob",
 		},
 		{
 			name:          "empty build tag is rejected",
@@ -485,6 +499,59 @@ func TestRunE2E_ShowFunctions(t *testing.T) {
 	}
 	if strings.Contains(stdout.String(), "newInternalProduct") {
 		t.Errorf("stdout = %q, want private package function hidden", stdout.String())
+	}
+}
+
+func TestRunE2E_MemberNameFilters(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"--function=New*", "--method=Stock", fixturesDir + "/basic"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("Run exit code = %d, want 0 (stderr=%q)", code, stderr.String())
+	}
+	got := stdout.String()
+	for _, want := range []string{"NewProduct", "Stock()"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("stdout = %q, want %q", got, want)
+		}
+	}
+	for _, unwanted := range []string{"newInternalProduct", "Discount(", "restock("} {
+		if strings.Contains(got, unwanted) {
+			t.Errorf("stdout = %q, do not want %q", got, unwanted)
+		}
+	}
+}
+
+func TestRunE2E_PublicAPI(t *testing.T) {
+	dir := t.TempDir()
+	files := map[string]string{
+		"root.go":                   "package sample\ntype Public struct{}\ntype private struct{}\n",
+		"internal/secret/secret.go": "package secret\ntype InternalType struct{}\n",
+		"feature/examples/main.go":  "package main\ntype ExampleType struct{}\n",
+		"feature/tests/types.go":    "package tests\ntype TestType struct{}\n",
+		"benchmark/types.go":        "package benchmark\ntype BenchmarkType struct{}\n",
+	}
+	for name, source := range files {
+		path := filepath.Join(dir, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(source), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"--public-api", "--summary", dir}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("Run exit code = %d, want 0 (stderr=%q)", code, stderr.String())
+	}
+	got := stdout.String()
+	if !strings.Contains(got, "Public") {
+		t.Errorf("stdout = %q, want Public", got)
+	}
+	for _, unwanted := range []string{"private", "InternalType", "ExampleType", "TestType", "BenchmarkType"} {
+		if strings.Contains(got, unwanted) {
+			t.Errorf("stdout = %q, do not want %q", got, unwanted)
+		}
 	}
 }
 

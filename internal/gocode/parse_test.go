@@ -53,6 +53,63 @@ func TestParseDeduplicatesDeclarationsAcrossBuildVariants(t *testing.T) {
 	}
 }
 
+func TestParsePreservesReceiverKind(t *testing.T) {
+	dir := t.TempDir()
+	source := `package sample
+type Sample struct{}
+func (Sample) Value() {}
+func (*Sample) Pointer() {}
+`
+	if err := os.WriteFile(filepath.Join(dir, "sample.go"), []byte(source), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	pkgs, warnings := mustParse(t, dir, ParseOptions{})
+	if len(warnings) != 0 || len(pkgs) != 1 {
+		t.Fatalf("packages = %+v, warnings = %+v", pkgs, warnings)
+	}
+	sample := findStruct(pkgs[0], "Sample")
+	if sample == nil || len(sample.Methods) != 2 {
+		t.Fatalf("Sample methods = %+v, want Value and Pointer", sample)
+	}
+	value := findMethod(sample.Methods, "Value")
+	pointer := findMethod(sample.Methods, "Pointer")
+	if value == nil || value.PointerReceiver {
+		t.Errorf("Value = %+v, want a value receiver", value)
+	}
+	if pointer == nil || !pointer.PointerReceiver {
+		t.Errorf("Pointer = %+v, want a pointer receiver", pointer)
+	}
+}
+
+func TestParsePreservesGenericTypeParameters(t *testing.T) {
+	dir := t.TempDir()
+	source := `package sample
+type Pair[K comparable, V ~int | ~string] struct{ Key K; Value V }
+type Index[K comparable, V any] map[K]V
+`
+	if err := os.WriteFile(filepath.Join(dir, "sample.go"), []byte(source), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	pkgs, warnings := mustParse(t, dir, ParseOptions{})
+	if len(warnings) != 0 || len(pkgs) != 1 {
+		t.Fatalf("packages = %+v, warnings = %+v", pkgs, warnings)
+	}
+	pair := findStruct(pkgs[0], "Pair")
+	if pair == nil || len(pair.TypeParams) != 2 {
+		t.Fatalf("Pair type params = %+v, want K and V", pair)
+	}
+	if pair.TypeParams[0].Name != "K" || pair.TypeParams[0].Constraint.String != "comparable" {
+		t.Errorf("Pair K = %+v, want comparable constraint", pair.TypeParams[0])
+	}
+	if pair.TypeParams[1].Name != "V" || pair.TypeParams[1].Constraint.String != "~int | ~string" {
+		t.Errorf("Pair V = %+v, want union constraint", pair.TypeParams[1])
+	}
+	index := findNamedType(pkgs[0], "Index")
+	if index == nil || len(index.TypeParams) != 2 || index.TypeParams[1].Constraint.String != "any" {
+		t.Errorf("Index type params = %+v, want K comparable and V any", index)
+	}
+}
+
 const fixturesDir = "../../testdata/fixtures"
 
 func findStruct(pkg *Package, name string) *Struct {

@@ -217,6 +217,10 @@ func TestBuild_EdgeCases(t *testing.T) {
 		t.Fatalf("gocode.Parse: %v", err)
 	}
 	d := Build(pkgs)
+	box := findEntry(d.Root, "Box")
+	if got := EntryDisplayName(box); got != "Box[T any]" {
+		t.Errorf("EntryDisplayName(Box) = %q, want %q", got, "Box[T any]")
+	}
 
 	wrapper := findEntry(d.Root, "Wrapper")
 	if wrapper == nil {

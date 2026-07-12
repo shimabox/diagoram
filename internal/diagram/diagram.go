@@ -95,6 +95,9 @@ type Entry struct {
 	ID string
 	// Name is the type's display name, as declared in source.
 	Name string
+	// TypeParams holds generic parameters for display. Name remains the
+	// declaration's base identifier for lookup and relationship resolution.
+	TypeParams []gocode.TypeParam
 	// Kind reports the shape of this Entry.
 	Kind Kind
 	// Doc is the first line of the type's doc comment, or "" if none.
@@ -109,6 +112,26 @@ type Entry struct {
 	NamedType *gocode.NamedType
 	// Functions is populated only when Kind is KindPackageFunctions.
 	Functions []gocode.Function
+}
+
+// EntryDisplayName returns the declared name including generic parameters and
+// constraints, while Entry.Name remains the stable base name used for IDs.
+func EntryDisplayName(entry *Entry) string {
+	if entry == nil || len(entry.TypeParams) == 0 {
+		if entry == nil {
+			return ""
+		}
+		return entry.Name
+	}
+	params := make([]string, 0, len(entry.TypeParams))
+	for _, param := range entry.TypeParams {
+		text := param.Name
+		if param.Constraint.String != "" {
+			text += " " + param.Constraint.String
+		}
+		params = append(params, text)
+	}
+	return entry.Name + "[" + strings.Join(params, ", ") + "]"
 }
 
 // NamedTypeLabel returns the user-facing name of a named type's shape.
@@ -152,6 +175,9 @@ type Edge struct {
 	// Unexported reports that every source member producing this edge is
 	// unexported. Structural edges and edges with any exported source are false.
 	Unexported bool
+	// PointerOnly reports that an Implementation edge is satisfied by *T,
+	// but not by T. It is false for every other edge kind.
+	PointerOnly bool
 }
 
 // unsafeIDChar matches any rune that is not safe to use in a Mermaid
@@ -264,22 +290,17 @@ func BuildWithModulePath(pkgs []*gocode.Package, modulePath string) *Diagram {
 
 		for _, s := range pkg.Structs {
 			e := &Entry{
-				ID:      uniqueEntryID(pkg.Dir, s.Name, usedIDs),
-				Name:    s.Name,
-				Kind:    KindStruct,
-				Doc:     s.Doc,
-				Fields:  s.Fields,
-				Methods: s.Methods,
+				ID: uniqueEntryID(pkg.Dir, s.Name, usedIDs), Name: s.Name,
+				TypeParams: s.TypeParams, Kind: KindStruct, Doc: s.Doc,
+				Fields: s.Fields, Methods: s.Methods,
 			}
 			node.Entries = append(node.Entries, e)
 			registry[entryKey{pkg.Dir, s.Name}] = e
 		}
 		for _, i := range pkg.Interfaces {
 			e := &Entry{
-				ID:      uniqueEntryID(pkg.Dir, i.Name, usedIDs),
-				Name:    i.Name,
-				Kind:    KindInterface,
-				Doc:     i.Doc,
+				ID: uniqueEntryID(pkg.Dir, i.Name, usedIDs), Name: i.Name,
+				TypeParams: i.TypeParams, Kind: KindInterface, Doc: i.Doc,
 				Methods: i.Methods,
 			}
 			node.Entries = append(node.Entries, e)
@@ -288,7 +309,8 @@ func BuildWithModulePath(pkgs []*gocode.Package, modulePath string) *Diagram {
 		for _, typ := range pkg.NamedTypes {
 			e := &Entry{
 				ID: uniqueEntryID(pkg.Dir, typ.Name, usedIDs), Name: typ.Name,
-				Kind: KindNamedType, Doc: typ.Doc, Methods: typ.Methods, NamedType: typ,
+				TypeParams: typ.TypeParams, Kind: KindNamedType, Doc: typ.Doc,
+				Methods: typ.Methods, NamedType: typ,
 			}
 			node.Entries = append(node.Entries, e)
 			registry[entryKey{pkg.Dir, typ.Name}] = e

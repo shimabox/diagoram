@@ -1,5 +1,5 @@
 @startuml class-diagram
-    class "Box\n<b>Box is a generic container. Its type parameter must not be treated</b>" as Box {
+    class "Box[T any]\n<b>Box is a generic container. Its type parameter must not be treated</b>" as Box {
         +Value : T
         +Items : []T
         +Get() : T

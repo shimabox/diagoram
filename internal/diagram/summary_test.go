@@ -95,4 +95,11 @@ func TestSummary_DisplayOptions(t *testing.T) {
 			t.Errorf("Summary(DisableImplements) = %q, want no \"implements:\"", got)
 		}
 	})
+
+	t.Run("member name filters change displayed counts", func(t *testing.T) {
+		got := Summary(basic, SummaryOptions{FunctionPatterns: []string{"New*"}, MethodPatterns: []string{"Stock"}})
+		if !strings.Contains(got, "1 functions") || !strings.Contains(got, "methods=1") {
+			t.Errorf("Summary(member filters) = %q, want one function and one method", got)
+		}
+	})
 }

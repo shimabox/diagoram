@@ -2,6 +2,7 @@ package diagram
 
 import (
 	"go/ast"
+	"path"
 
 	"github.com/shimabox/diagoram/internal/gocode"
 )
@@ -48,6 +49,21 @@ func ExportedFunctions(functions []gocode.Function) []gocode.Function {
 	return out
 }
 
+// FilterFunctionsByName returns functions matching at least one name glob.
+// Empty patterns leave the input unchanged.
+func FilterFunctionsByName(functions []gocode.Function, patterns []string) []gocode.Function {
+	if len(patterns) == 0 {
+		return functions
+	}
+	var out []gocode.Function
+	for _, function := range functions {
+		if matchesNamePattern(function.Name, patterns) {
+			out = append(out, function)
+		}
+	}
+	return out
+}
+
 // ExportedFields returns the subset of fields whose Exported is true,
 // preserving order. It backs every consumer's --hide-unexported
 // support (both render/mermaid and Summary) so the definition of
@@ -72,6 +88,30 @@ func ExportedMethods(methods []gocode.Method) []gocode.Method {
 		}
 	}
 	return out
+}
+
+// FilterMethodsByName returns methods matching at least one name glob.
+// Empty patterns leave the input unchanged.
+func FilterMethodsByName(methods []gocode.Method, patterns []string) []gocode.Method {
+	if len(patterns) == 0 {
+		return methods
+	}
+	var out []gocode.Method
+	for _, method := range methods {
+		if matchesNamePattern(method.Name, patterns) {
+			out = append(out, method)
+		}
+	}
+	return out
+}
+
+func matchesNamePattern(name string, patterns []string) bool {
+	for _, pattern := range patterns {
+		if matched, err := path.Match(pattern, name); err == nil && matched {
+			return true
+		}
+	}
+	return false
 }
 
 // ExportedConstants returns the subset of constants whose names are exported.

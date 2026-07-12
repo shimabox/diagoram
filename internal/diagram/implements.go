@@ -23,13 +23,11 @@ import (
 //     an embed that does not resolve (external package, or not an
 //     interface) is silently skipped rather than failing the whole
 //     comparison.
-//   - A struct's method set is its own declared Methods plus, for each
-//     of its embedded fields, that field's own method set — but only
-//     one level deep (the embedded type's own embeds are not
-//     followed further). A struct's own method shadows a promoted one
-//     of the same name, matching Go's actual promotion rules. One
-//     level is enough for diagoram's purposes and keeps the walk
-//     trivially cycle-free; see the Phase 5 plan for the rationale.
+//   - Value and pointer method sets are tracked separately. T receives
+//     value-receiver methods while *T receives both receiver forms.
+//     Promoted methods from embedded T and *T follow the same distinction,
+//     one embedding level deep. A struct's own method shadows a promoted
+//     method of the same name.
 //   - A method "matches" when its name is identical and every
 //     parameter/result type, compared position by position via
 //     normalizeTypeRef, is equal. normalizeTypeRef intentionally
@@ -60,32 +58,44 @@ func buildImplementationEdges(pkgs []*gocode.Package, registry map[entryKey]*Ent
 	for _, pkg := range pkgs {
 		for _, s := range pkg.Structs {
 			structEntry := registry[entryKey{pkg.Dir, s.Name}]
-			structMethods := effectiveStructMethods(pkg.Dir, s, pkgByDir, dirs, modulePath, structByKey, ifaceByKey, ifaceMethodsMemo)
+			structMethods := effectiveStructMethodSets(pkg.Dir, s, pkgByDir, dirs, modulePath, structByKey, ifaceByKey, ifaceMethodsMemo)
 
 			for ifaceKey := range ifaceByKey {
 				methods := resolveInterfaceMethods(ifaceKey, ifaceByKey, ifaceMethodsMemo, pkgByDir, dirs, modulePath, map[entryKey]bool{})
 				if len(methods) == 0 {
 					continue
 				}
-				if !implementsAll(structMethods, methods) {
+				valueImplements := implementsAll(structMethods.value, methods)
+				pointerImplements := implementsAll(structMethods.pointer, methods)
+				if !valueImplements && !pointerImplements {
 					continue
 				}
 				ifaceEntry := registry[ifaceKey]
-				edges = append(edges, Edge{From: structEntry.ID, To: ifaceEntry.ID, Kind: Implementation})
+				edges = append(edges, Edge{From: structEntry.ID, To: ifaceEntry.ID, Kind: Implementation, PointerOnly: !valueImplements})
 			}
 		}
 		for _, typ := range pkg.NamedTypes {
 			concreteEntry := registry[entryKey{pkg.Dir, typ.Name}]
-			concreteMethods := map[string]gocode.Method{}
+			concreteMethods := newConcreteMethodSets()
 			for _, method := range typ.Methods {
-				concreteMethods[method.Name] = method
+				concreteMethods.pointer[method.Name] = method
+				if method.PointerReceiver {
+					delete(concreteMethods.value, method.Name)
+				} else {
+					concreteMethods.value[method.Name] = method
+				}
 			}
 			for ifaceKey := range ifaceByKey {
 				methods := resolveInterfaceMethods(ifaceKey, ifaceByKey, ifaceMethodsMemo, pkgByDir, dirs, modulePath, map[entryKey]bool{})
-				if len(methods) == 0 || !implementsAll(concreteMethods, methods) {
+				if len(methods) == 0 {
 					continue
 				}
-				edges = append(edges, Edge{From: concreteEntry.ID, To: registry[ifaceKey].ID, Kind: Implementation})
+				valueImplements := implementsAll(concreteMethods.value, methods)
+				pointerImplements := implementsAll(concreteMethods.pointer, methods)
+				if !valueImplements && !pointerImplements {
+					continue
+				}
+				edges = append(edges, Edge{From: concreteEntry.ID, To: registry[ifaceKey].ID, Kind: Implementation, PointerOnly: !valueImplements})
 			}
 		}
 	}
@@ -131,18 +141,20 @@ func resolveInterfaceMethods(key entryKey, ifaceByKey map[entryKey]*gocode.Inter
 	return methods
 }
 
-// effectiveStructMethods returns s's method set as a name -> Method
-// map: s's own declared Methods, overlaid on top of every embedded
-// field's own method set (one level deep only — see
-// buildImplementationEdges' doc comment). An embedded field that
-// resolves to another analyzed struct contributes that struct's own
-// Methods; one that resolves to an analyzed interface contributes that
-// interface's full (recursively expanded) method set, since Go
-// promotes an embedded interface's methods to the outer struct just as
-// it does an embedded struct's. An embed that does not resolve at all
-// is silently skipped.
-func effectiveStructMethods(dir string, s *gocode.Struct, pkgByDir map[string]*gocode.Package, dirs []string, modulePath string, structByKey map[entryKey]*gocode.Struct, ifaceByKey map[entryKey]*gocode.Interface, ifaceMethodsMemo map[entryKey][]gocode.Method) map[string]gocode.Method {
-	methods := map[string]gocode.Method{}
+// effectiveStructMethodSets returns the separate method sets of s and *s.
+// Embedded fields contribute promoted methods one level deep; an embedded
+// interface contributes its recursively expanded method set to both forms.
+type concreteMethodSets struct {
+	value   map[string]gocode.Method
+	pointer map[string]gocode.Method
+}
+
+func newConcreteMethodSets() concreteMethodSets {
+	return concreteMethodSets{value: map[string]gocode.Method{}, pointer: map[string]gocode.Method{}}
+}
+
+func effectiveStructMethodSets(dir string, s *gocode.Struct, pkgByDir map[string]*gocode.Package, dirs []string, modulePath string, structByKey map[entryKey]*gocode.Struct, ifaceByKey map[entryKey]*gocode.Interface, ifaceMethodsMemo map[entryKey][]gocode.Method) concreteMethodSets {
+	methods := newConcreteMethodSets()
 
 	for _, embed := range s.Embeds {
 		key, ok := resolveRefKey(pkgByDir, dirs, modulePath, dir, embed)
@@ -151,19 +163,28 @@ func effectiveStructMethods(dir string, s *gocode.Struct, pkgByDir map[string]*g
 		}
 		if es, ok := structByKey[key]; ok {
 			for _, m := range es.Methods {
-				methods[m.Name] = m
+				methods.pointer[m.Name] = m
+				if embed.IsPtr || !m.PointerReceiver {
+					methods.value[m.Name] = m
+				}
 			}
 			continue
 		}
 		if _, ok := ifaceByKey[key]; ok {
 			for _, m := range resolveInterfaceMethods(key, ifaceByKey, ifaceMethodsMemo, pkgByDir, dirs, modulePath, map[entryKey]bool{}) {
-				methods[m.Name] = m
+				methods.value[m.Name] = m
+				methods.pointer[m.Name] = m
 			}
 		}
 	}
 
 	for _, m := range s.Methods {
-		methods[m.Name] = m
+		methods.pointer[m.Name] = m
+		if m.PointerReceiver {
+			delete(methods.value, m.Name)
+		} else {
+			methods.value[m.Name] = m
+		}
 	}
 	return methods
 }

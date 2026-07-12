@@ -76,6 +76,7 @@ const (
 type NamedType struct {
 	Name       string
 	Doc        string
+	TypeParams []TypeParam
 	Kind       NamedTypeKind
 	Underlying TypeRef
 	Params     []TypeRef
@@ -107,6 +108,8 @@ type Struct struct {
 	// Name is the type's identifier (generic type parameters, if any,
 	// are not included).
 	Name string
+	// TypeParams holds declared generic parameters and their constraints.
+	TypeParams []TypeParam
 	// Doc is the first line of the type's doc comment, or "" if none.
 	Doc string
 	// Fields are the struct's named fields, in source order. Embedded
@@ -124,6 +127,8 @@ type Struct struct {
 type Interface struct {
 	// Name is the type's identifier.
 	Name string
+	// TypeParams holds declared generic parameters and their constraints.
+	TypeParams []TypeParam
 	// Doc is the first line of the type's doc comment, or "" if none.
 	Doc string
 	// Methods are the interface's own method signatures, in source
@@ -134,6 +139,12 @@ type Interface struct {
 	// generic type constraints, any other embedded element), in
 	// source order.
 	Embeds []TypeRef
+}
+
+// TypeParam is one declared generic type parameter.
+type TypeParam struct {
+	Name       string
+	Constraint TypeRef
 }
 
 // Field is a named struct field.
@@ -160,6 +171,9 @@ type Method struct {
 	Results []TypeRef
 	// Exported reports whether Name is exported (ast.IsExported).
 	Exported bool
+	// PointerReceiver reports whether a declared concrete method has a
+	// pointer receiver. Interface methods leave this false.
+	PointerReceiver bool
 }
 
 // Function is a package-level function signature.

@@ -49,29 +49,44 @@ func collectDecls(file *ast.File) fileDecls {
 				if doc == "" && len(d.Specs) == 1 {
 					doc = docFirstLine(d.Doc)
 				}
+				typeParams := typeParamsFromFieldList(ts.TypeParams)
 
 				if ts.Assign.IsValid() {
-					fd.NamedTypes = append(fd.NamedTypes, namedTypeFromSpec(ts.Name.Name, doc, NamedAlias, ts.Type))
+					typ := namedTypeFromSpec(ts.Name.Name, doc, NamedAlias, ts.Type)
+					typ.TypeParams = typeParams
+					fd.NamedTypes = append(fd.NamedTypes, typ)
 					continue
 				}
 
 				switch t := ts.Type.(type) {
 				case *ast.StructType:
-					fd.Structs = append(fd.Structs, structFromSpec(ts.Name.Name, doc, t))
+					typ := structFromSpec(ts.Name.Name, doc, t)
+					typ.TypeParams = typeParams
+					fd.Structs = append(fd.Structs, typ)
 				case *ast.InterfaceType:
-					fd.Interfaces = append(fd.Interfaces, interfaceFromSpec(ts.Name.Name, doc, t))
+					typ := interfaceFromSpec(ts.Name.Name, doc, t)
+					typ.TypeParams = typeParams
+					fd.Interfaces = append(fd.Interfaces, typ)
 				case *ast.ArrayType:
 					kind := NamedArray
 					if t.Len == nil {
 						kind = NamedSlice
 					}
-					fd.NamedTypes = append(fd.NamedTypes, namedTypeFromSpec(ts.Name.Name, doc, kind, t))
+					typ := namedTypeFromSpec(ts.Name.Name, doc, kind, t)
+					typ.TypeParams = typeParams
+					fd.NamedTypes = append(fd.NamedTypes, typ)
 				case *ast.MapType:
-					fd.NamedTypes = append(fd.NamedTypes, namedTypeFromSpec(ts.Name.Name, doc, NamedMap, t))
+					typ := namedTypeFromSpec(ts.Name.Name, doc, NamedMap, t)
+					typ.TypeParams = typeParams
+					fd.NamedTypes = append(fd.NamedTypes, typ)
 				case *ast.FuncType:
-					fd.NamedTypes = append(fd.NamedTypes, namedTypeFromSpec(ts.Name.Name, doc, NamedFunc, t))
+					typ := namedTypeFromSpec(ts.Name.Name, doc, NamedFunc, t)
+					typ.TypeParams = typeParams
+					fd.NamedTypes = append(fd.NamedTypes, typ)
 				default:
-					fd.NamedTypes = append(fd.NamedTypes, namedTypeFromSpec(ts.Name.Name, doc, NamedScalar, t))
+					typ := namedTypeFromSpec(ts.Name.Name, doc, NamedScalar, t)
+					typ.TypeParams = typeParams
+					fd.NamedTypes = append(fd.NamedTypes, typ)
 				}
 			}
 		case *ast.FuncDecl:
@@ -88,6 +103,20 @@ func collectDecls(file *ast.File) fileDecls {
 	}
 
 	return fd
+}
+
+func typeParamsFromFieldList(fl *ast.FieldList) []TypeParam {
+	if fl == nil {
+		return nil
+	}
+	var params []TypeParam
+	for _, field := range fl.List {
+		constraint := typeRefFromExpr(field.Type)
+		for _, name := range field.Names {
+			params = append(params, TypeParam{Name: name.Name, Constraint: constraint})
+		}
+	}
+	return params
 }
 
 func functionFromDecl(d *ast.FuncDecl) Function {
@@ -240,11 +269,17 @@ func interfaceFromSpec(name, doc string, it *ast.InterfaceType) *Interface {
 // methodFromFuncDecl builds a Method from a receiver-bearing FuncDecl.
 func methodFromFuncDecl(d *ast.FuncDecl) Method {
 	return Method{
-		Name:     d.Name.Name,
-		Params:   typeRefsFromFieldList(d.Type.Params),
-		Results:  typeRefsFromFieldList(d.Type.Results),
-		Exported: ast.IsExported(d.Name.Name),
+		Name:            d.Name.Name,
+		Params:          typeRefsFromFieldList(d.Type.Params),
+		Results:         typeRefsFromFieldList(d.Type.Results),
+		Exported:        ast.IsExported(d.Name.Name),
+		PointerReceiver: receiverIsPointer(d.Recv.List[0].Type),
 	}
+}
+
+func receiverIsPointer(expr ast.Expr) bool {
+	_, ok := expr.(*ast.StarExpr)
+	return ok
 }
 
 // typeRefsFromFieldList expands an *ast.FieldList (parameters or

@@ -105,7 +105,7 @@ func parseDir(d dirFiles) (*Package, []Warning) {
 				methodSets[recv] = map[string]bool{}
 			}
 			for _, method := range methods {
-				key := signatureKey(method.Name, method.Params, method.Results)
+				key := methodSignatureKey(method)
 				if !methodSets[recv][key] {
 					methodSets[recv][key] = true
 					methodsByReceiver[recv] = append(methodsByReceiver[recv], method)
@@ -151,6 +151,14 @@ func parseDir(d dirFiles) (*Package, []Warning) {
 	})
 
 	return pkg, warnings
+}
+
+func methodSignatureKey(method Method) string {
+	prefix := "value\x00"
+	if method.PointerReceiver {
+		prefix = "pointer\x00"
+	}
+	return prefix + signatureKey(method.Name, method.Params, method.Results)
 }
 
 func functionSignatureKey(function Function) string {

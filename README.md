@@ -91,6 +91,9 @@ docker run --rm -v "$PWD:/work" plantuml/plantuml -tsvg /work/diagram.puml
 | `--hide-unexported` | unexported の型、フィールド、メソッドを隠す |
 | `--show-constants` | 名前付き型に属する定数をクラス図に表示 |
 | `--show-functions` | package-level functionをクラス図に表示 |
+| `--function='glob'` | 表示するpackage-level functionを名前で絞る。複数指定可 |
+| `--method='glob'` | 表示するmethodを名前で絞る。複数指定可 |
+| `--public-api` | 非公開identifierとinternal・example・test・benchmark packageを除外 |
 | `--disable-fields` | フィールドを描画しない |
 | `--disable-methods` | メソッドを描画しない |
 | `--disable-implements` | 推定した interface 実装関係を描画しない |
@@ -109,6 +112,13 @@ docker run --rm -v "$PWD:/work" plantuml/plantuml -tsvg /work/diagram.puml
 `--class-diagram` と `--package-diagram` は併用できません。`--summary` と `--package-diagram` も併用できません。
 
 大きなプロジェクトでは `--rel-target` を使うと、確認したい型の周辺だけを表示できます。型名は `Product` または `attribute.Color` の形式で指定します。
+
+外部から利用できるAPIの概要だけを見る場合は `--public-api` を使います。functionやmethodが多い場合は名前のglobを追加できます。
+
+```sh
+diagoram --public-api --summary .
+diagoram --public-api --function='New*' --method='Get*' .
+```
 
 ## 開発
 

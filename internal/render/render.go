@@ -17,6 +17,9 @@ type Options struct {
 	ShowConstants bool
 	// ShowFunctions includes synthetic package-level function entries.
 	ShowFunctions bool
+	// FunctionPatterns and MethodPatterns limit displayed members by name.
+	FunctionPatterns []string
+	MethodPatterns   []string
 	// DisableFields omits every Entry's fields from the rendered class
 	// body (--disable-fields).
 	DisableFields bool

@@ -90,7 +90,7 @@ func renderSubtree(node *diagram.PackageNode, opt render.Options) []string {
 func renderClass(e *diagram.Entry, depth int, opt render.Options) []string {
 	indent := strings.Repeat(indentUnit, depth)
 	memberIndent := strings.Repeat(indentUnit, depth+1)
-	header := fmt.Sprintf(`%sclass %s["%s"]`, indent, e.ID, e.Name)
+	header := fmt.Sprintf(`%sclass %s["%s"]`, indent, e.ID, diagram.EntryDisplayName(e))
 	if e.Kind == diagram.KindPackageFunctions {
 		if !opt.ShowFunctions {
 			return nil
@@ -99,6 +99,7 @@ func renderClass(e *diagram.Entry, depth int, opt render.Options) []string {
 		if opt.HideUnexported {
 			functions = diagram.ExportedFunctions(functions)
 		}
+		functions = diagram.FilterFunctionsByName(functions, opt.FunctionPatterns)
 		if len(functions) == 0 {
 			return nil
 		}
@@ -178,6 +179,7 @@ func visibleMembers(e *diagram.Entry, opt render.Options) ([]gocode.Field, []goc
 		if opt.HideUnexported {
 			methods = diagram.ExportedMethods(methods)
 		}
+		methods = diagram.FilterMethodsByName(methods, opt.MethodPatterns)
 	}
 	return fields, methods
 }
@@ -254,6 +256,9 @@ func renderEdges(edges []diagram.Edge, opt render.Options) []string {
 			arrow = "..|>"
 		}
 		line := indentUnit + e.From + " " + arrow + " " + e.To
+		if e.Kind == diagram.Implementation && e.PointerOnly {
+			line += ` : pointer receiver`
+		}
 		if (e.Kind == diagram.Dependency || e.Kind == diagram.PackageFunctionDependency) && e.ToCollection {
 			line += ` : *`
 		}
