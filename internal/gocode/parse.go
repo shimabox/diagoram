@@ -67,9 +67,11 @@ func parseDir(d dirFiles) (*Package, []Warning) {
 		if pkgName == "" {
 			pkgName = file.Name.Name
 		} else if file.Name.Name != pkgName {
+			buildExpression, _ := readBuildExpression(absPath)
 			warnings = append(warnings, Warning{
-				File: relPath,
-				Err:  fmt.Errorf("package %q does not match package %q already selected for this directory", file.Name.Name, pkgName),
+				File:            relPath,
+				Err:             fmt.Errorf("package %q does not match package %q already selected for this directory", file.Name.Name, pkgName),
+				BuildExpression: buildExpression,
 			})
 			continue
 		}

@@ -240,10 +240,15 @@ type Warning struct {
 	// Err is the underlying error (typically a parser.ParseFile
 	// syntax error).
 	Err error
+	// BuildExpression is the file's normalized build constraint, when present.
+	BuildExpression string
 }
 
 // Error implements the error interface so a Warning can be used
 // wherever an error is expected (e.g. wrapped, formatted, or logged).
 func (w Warning) Error() string {
+	if w.BuildExpression != "" {
+		return w.File + " [build: " + w.BuildExpression + "]: " + w.Err.Error()
+	}
 	return w.File + ": " + w.Err.Error()
 }

@@ -165,6 +165,47 @@ func isGeneratedGoFile(filename string) (bool, error) {
 	return false, scanner.Err()
 }
 
+func readBuildExpression(filename string) (string, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	var legacy []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "//") {
+			if constraint.IsGoBuild(line) {
+				expr, err := constraint.Parse(line)
+				if err != nil {
+					return "", err
+				}
+				return expr.String(), nil
+			}
+			if constraint.IsPlusBuild(line) {
+				expr, err := constraint.Parse(line)
+				if err != nil {
+					return "", err
+				}
+				legacy = append(legacy, expr.String())
+			}
+			continue
+		}
+		break
+	}
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+	if len(legacy) == 1 {
+		return legacy[0], nil
+	}
+	for i := range legacy {
+		legacy[i] = "(" + legacy[i] + ")"
+	}
+	return strings.Join(legacy, " && "), nil
+}
+
 func matchIncludedPath(patterns []string, name string) bool {
 	for current := name; ; current = pathpkg.Dir(current) {
 		if matchAnyPath(patterns, current) {

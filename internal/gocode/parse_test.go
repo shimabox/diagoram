@@ -29,6 +29,25 @@ func TestParseSkipsFilesFromAnotherPackage(t *testing.T) {
 	}
 }
 
+func TestParsePackageMismatchWarningIncludesBuildExpression(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "sample.go"), []byte("package sample\ntype Included struct{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	tools := "//go:build tools\n\npackage tools\ntype Tool struct{}\n"
+	if err := os.WriteFile(filepath.Join(dir, "tools.go"), []byte(tools), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	pkgs, warnings := mustParse(t, dir, ParseOptions{})
+	if len(pkgs) != 1 || len(warnings) != 1 {
+		t.Fatalf("packages = %+v, warnings = %+v, want one package and warning", pkgs, warnings)
+	}
+	if warnings[0].BuildExpression != "tools" || !strings.Contains(warnings[0].Error(), "[build: tools]") {
+		t.Errorf("warning = %+v (%q), want tools build expression", warnings[0], warnings[0].Error())
+	}
+}
+
 func TestParseDeduplicatesDeclarationsAcrossBuildVariants(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "sample.go"), []byte("package sample\ntype Sample struct{}\n"), 0o600); err != nil {
