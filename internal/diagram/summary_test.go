@@ -102,4 +102,16 @@ func TestSummary_DisplayOptions(t *testing.T) {
 			t.Errorf("Summary(member filters) = %q, want one function and one method", got)
 		}
 	})
+
+	t.Run("receiver filter affects concrete methods but not interface methods", func(t *testing.T) {
+		got := Summary(basic, SummaryOptions{ReceiverPatterns: []string{"Other"}})
+		if !strings.Contains(got, "methods=0") {
+			t.Errorf("Summary(receiver filter) = %q, want concrete methods=0", got)
+		}
+		interfaces := Build(mustParse(t, fixturesDir+"/interfaces"))
+		got = Summary(interfaces, SummaryOptions{ReceiverPatterns: []string{"Other"}})
+		if !strings.Contains(got, "Shape") || !strings.Contains(got, "methods=1") {
+			t.Errorf("Summary(receiver filter) = %q, want interface methods preserved", got)
+		}
+	})
 }

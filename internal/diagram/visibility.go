@@ -114,6 +114,12 @@ func matchesNamePattern(name string, patterns []string) bool {
 	return false
 }
 
+// ReceiverMatches reports whether a concrete receiver base type matches at
+// least one glob. Empty patterns match every receiver.
+func ReceiverMatches(name string, patterns []string) bool {
+	return len(patterns) == 0 || matchesNamePattern(name, patterns)
+}
+
 // LimitMembers returns at most max values and the number omitted. A max of
 // zero or less is treated as unlimited.
 func LimitMembers[T any](values []T, max int) ([]T, int) {

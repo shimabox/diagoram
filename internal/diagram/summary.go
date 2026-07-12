@@ -31,6 +31,8 @@ type SummaryOptions struct {
 	// FunctionPatterns and MethodPatterns limit displayed members by name.
 	FunctionPatterns []string
 	MethodPatterns   []string
+	// ReceiverPatterns limits concrete methods by receiver base type name.
+	ReceiverPatterns []string
 }
 
 // entrySummaryMeta records the facts about an Entry that Summary needs
@@ -212,6 +214,9 @@ func summaryDetails(e *Entry, ownerDir string, metas map[string]entrySummaryMeta
 			methods = ExportedMethods(methods)
 		}
 		methods = FilterMethodsByName(methods, opt.MethodPatterns)
+		if !ReceiverMatches(e.Name, opt.ReceiverPatterns) {
+			methods = nil
+		}
 		var counts []string
 		if !opt.DisableFields {
 			counts = append(counts, "fields="+strconv.Itoa(len(fields)))
@@ -241,6 +246,9 @@ func summaryDetails(e *Entry, ownerDir string, metas map[string]entrySummaryMeta
 				methods = ExportedMethods(methods)
 			}
 			methods = FilterMethodsByName(methods, opt.MethodPatterns)
+			if !ReceiverMatches(e.Name, opt.ReceiverPatterns) {
+				methods = nil
+			}
 			parts = append(parts, "methods="+strconv.Itoa(len(methods)))
 		}
 	} else if e.Kind == KindInterface && !opt.DisableMethods {

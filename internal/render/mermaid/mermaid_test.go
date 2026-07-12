@@ -170,6 +170,16 @@ func TestRender_DisplayOptions(t *testing.T) {
 			t.Errorf("Render(MaxMembers constants) = %q, want omission note", got)
 		}
 	})
+
+	t.Run("receiver filter hides methods on unmatched concrete types", func(t *testing.T) {
+		got, err := New().Render(basic, render.Options{ReceiverPatterns: []string{"Other"}})
+		if err != nil {
+			t.Fatalf("Render: %v", err)
+		}
+		if strings.Contains(got, "Discount(") || strings.Contains(got, "Stock()") {
+			t.Errorf("Render(receiver filter) = %q, want no Product methods", got)
+		}
+	})
 }
 
 func TestRender_HideUnexportedTypes(t *testing.T) {

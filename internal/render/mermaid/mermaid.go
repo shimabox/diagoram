@@ -206,6 +206,9 @@ func visibleMembers(e *diagram.Entry, opt render.Options) ([]gocode.Field, []goc
 			methods = diagram.ExportedMethods(methods)
 		}
 		methods = diagram.FilterMethodsByName(methods, opt.MethodPatterns)
+		if e.Kind != diagram.KindInterface && !diagram.ReceiverMatches(e.Name, opt.ReceiverPatterns) {
+			methods = nil
+		}
 	}
 	return fields, methods
 }

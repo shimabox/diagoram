@@ -58,6 +58,8 @@ Options:
   --function='glob'   Only show package functions whose name matches glob.
                       Repeatable; implies --show-functions for class diagrams.
   --method='glob'     Only show methods whose name matches glob. Repeatable.
+  --receiver='glob'   Only show concrete methods whose receiver base type
+                      matches glob. Repeatable.
   --max-members=N     Show at most N fields, methods, constants, and package
                       functions per entry. Omitted counts are reported.
   --disable-fields    Do not draw fields in the class diagram. Only
@@ -141,6 +143,8 @@ type Options struct {
 	// FunctionPatterns and MethodPatterns contain repeatable member-name globs.
 	FunctionPatterns []string
 	MethodPatterns   []string
+	// ReceiverPatterns limits concrete methods by receiver base type name.
+	ReceiverPatterns []string
 	// MaxMembers limits each displayed member category. Zero is unlimited.
 	MaxMembers int
 	// DisableFields omits fields from a class diagram/summary
@@ -222,6 +226,13 @@ func parseArgs(args []string, stderr io.Writer) (*Options, error) {
 			return fmt.Errorf("invalid method glob %q: %w", v, err)
 		}
 		opts.MethodPatterns = append(opts.MethodPatterns, v)
+		return nil
+	})
+	fs.Func("receiver", "only show concrete methods whose receiver base type matches this glob (repeatable)", func(v string) error {
+		if _, err := pathpkg.Match(v, ""); err != nil {
+			return fmt.Errorf("invalid receiver glob %q: %w", v, err)
+		}
+		opts.ReceiverPatterns = append(opts.ReceiverPatterns, v)
 		return nil
 	})
 	fs.IntVar(&opts.MaxMembers, "max-members", 0, "maximum members shown per category (0 means unlimited)")
@@ -435,6 +446,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 				DisableImplements: opts.DisableImplements,
 				FunctionPatterns:  opts.FunctionPatterns,
 				MethodPatterns:    opts.MethodPatterns,
+				ReceiverPatterns:  opts.ReceiverPatterns,
 			})
 		} else {
 			out, err = renderer.Render(d, render.Options{
@@ -446,6 +458,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 				DisableImplements: opts.DisableImplements,
 				FunctionPatterns:  opts.FunctionPatterns,
 				MethodPatterns:    opts.MethodPatterns,
+				ReceiverPatterns:  opts.ReceiverPatterns,
 				MaxMembers:        opts.MaxMembers,
 			})
 			if err != nil {

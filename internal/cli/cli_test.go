@@ -190,6 +190,12 @@ func TestRun(t *testing.T) {
 			wantStderrHas: "invalid method glob",
 		},
 		{
+			name:          "malformed receiver glob is rejected",
+			args:          []string{"--receiver=[", fixturesDir + "/basic"},
+			wantCode:      1,
+			wantStderrHas: "invalid receiver glob",
+		},
+		{
 			name:          "empty build tag is rejected",
 			args:          []string{"--build-tag=", fixturesDir + "/basic"},
 			wantCode:      1,
@@ -543,6 +549,23 @@ func TestRunE2E_MaxMembers(t *testing.T) {
 	for _, want := range []string{"1 functions omitted", "2 fields omitted", "2 methods omitted"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("stdout = %q, want omission note %q", got, want)
+		}
+	}
+}
+
+func TestRunE2E_ReceiverFilter(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"--receiver=Other", fixturesDir + "/basic"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("Run exit code = %d, want 0 (stderr=%q)", code, stderr.String())
+	}
+	got := stdout.String()
+	if !strings.Contains(got, "Name string") {
+		t.Errorf("stdout = %q, want fields to remain visible", got)
+	}
+	for _, unwanted := range []string{"Discount(", "Stock()", "restock("} {
+		if strings.Contains(got, unwanted) {
+			t.Errorf("stdout = %q, do not want method %q from an unmatched receiver", got, unwanted)
 		}
 	}
 }

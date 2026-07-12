@@ -20,6 +20,8 @@ type Options struct {
 	// FunctionPatterns and MethodPatterns limit displayed members by name.
 	FunctionPatterns []string
 	MethodPatterns   []string
+	// ReceiverPatterns limits concrete methods by receiver base type name.
+	ReceiverPatterns []string
 	// MaxMembers limits each field, method, constant, and package-function
 	// list. Zero means unlimited.
 	MaxMembers int
