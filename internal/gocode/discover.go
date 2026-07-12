@@ -8,6 +8,7 @@ import (
 	"os"
 	pathpkg "path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -30,6 +31,7 @@ type dirFiles struct {
 var (
 	defaultIncludes = []string{"*.go"}
 	defaultExcludes = []string{"*_test.go"}
+	generatedMarker = regexp.MustCompile(`^// Code generated .* DO NOT EDIT\.$`)
 )
 
 // skipDirNames are directory base names that are never descended into
@@ -102,6 +104,18 @@ func discoverDirs(rootDir string, opt ParseOptions) ([]dirFiles, error) {
 			if matchAny(excludes, name) {
 				continue
 			}
+			if opt.GeneratedFiles != GeneratedFilesAll {
+				generated, err := isGeneratedGoFile(filepath.Join(path, name))
+				if err != nil {
+					return err
+				}
+				if opt.GeneratedFiles == GeneratedFilesExclude && generated {
+					continue
+				}
+				if opt.GeneratedFiles == GeneratedFilesOnly && !generated {
+					continue
+				}
+			}
 			if opt.BuildContext == nil {
 				ignored, err := requiresIgnoreBuildTag(filepath.Join(path, name))
 				if err != nil {
@@ -134,6 +148,21 @@ func discoverDirs(rootDir string, opt ParseOptions) ([]dirFiles, error) {
 
 	sort.Slice(results, func(i, j int) bool { return results[i].Dir < results[j].Dir })
 	return results, nil
+}
+
+func isGeneratedGoFile(filename string) (bool, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return false, err
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		if generatedMarker.MatchString(scanner.Text()) {
+			return true, nil
+		}
+	}
+	return false, scanner.Err()
 }
 
 func matchIncludedPath(patterns []string, name string) bool {

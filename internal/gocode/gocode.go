@@ -27,10 +27,21 @@ type ParseOptions struct {
 	// IncludeDirs limits analysis to matching relative directories and
 	// their descendants. Empty includes every directory.
 	IncludeDirs []string
+	// GeneratedFiles controls whether generated Go files are included.
+	GeneratedFiles GeneratedFileMode
 	// BuildContext enables build-constraint and filename-suffix filtering.
 	// Nil keeps the source-union behavior and analyzes every matching file.
 	BuildContext *BuildContext
 }
+
+// GeneratedFileMode selects generated and handwritten Go files.
+type GeneratedFileMode int
+
+const (
+	GeneratedFilesAll GeneratedFileMode = iota
+	GeneratedFilesExclude
+	GeneratedFilesOnly
+)
 
 // BuildContext selects files for a target Go build environment.
 type BuildContext struct {

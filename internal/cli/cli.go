@@ -91,6 +91,8 @@ Options:
   --include-dir='glob'
                       Only analyze matching relative directories and their
                       descendants (repeatable)
+  --exclude-generated Skip Go files carrying the standard generated marker.
+  --generated-only    Analyze only Go files carrying that marker.
   --exclude='glob'    Skip files matching glob (repeatable; default
                       "*_test.go"; repeating --exclude replaces the
                       default rather than adding to it)
@@ -182,6 +184,9 @@ type Options struct {
 	ExcludeDirs []string
 	// IncludeDirs contains relative directory globs passed via --include-dir.
 	IncludeDirs []string
+	// ExcludeGenerated and GeneratedOnly select generated source files.
+	ExcludeGenerated bool
+	GeneratedOnly    bool
 	// GOOS and GOARCH select an explicit build context.
 	GOOS   string
 	GOARCH string
@@ -278,6 +283,8 @@ func parseArgs(args []string, stderr io.Writer) (*Options, error) {
 		opts.IncludeDirs = append(opts.IncludeDirs, v)
 		return nil
 	})
+	fs.BoolVar(&opts.ExcludeGenerated, "exclude-generated", false, "skip Go files with the standard generated marker")
+	fs.BoolVar(&opts.GeneratedOnly, "generated-only", false, "analyze only Go files with the standard generated marker")
 	fs.StringVar(&opts.GOOS, "goos", "", "select files for this GOOS")
 	fs.StringVar(&opts.GOARCH, "goarch", "", "select files for this GOARCH")
 	fs.Func("build-tag", "add a satisfied build tag (repeatable)", func(v string) error {
@@ -357,6 +364,10 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "Error: --max-members must be zero or greater.\n\n%s", usage)
 		return 1
 	}
+	if opts.ExcludeGenerated && opts.GeneratedOnly {
+		fmt.Fprintf(stderr, "Error: --exclude-generated and --generated-only cannot be used together.\n\n%s", usage)
+		return 1
+	}
 
 	renderer, formatErr := selectRenderer(opts.Format)
 	if formatErr != nil {
@@ -398,6 +409,11 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		Excludes:    opts.Exclude,
 		ExcludeDirs: excludeDirs,
 		IncludeDirs: opts.IncludeDirs,
+	}
+	if opts.ExcludeGenerated {
+		parseOptions.GeneratedFiles = gocode.GeneratedFilesExclude
+	} else if opts.GeneratedOnly {
+		parseOptions.GeneratedFiles = gocode.GeneratedFilesOnly
 	}
 	if opts.GOOS != "" || opts.GOARCH != "" || len(opts.BuildTags) > 0 {
 		parseOptions.BuildContext = &gocode.BuildContext{GOOS: opts.GOOS, GOARCH: opts.GOARCH, Tags: opts.BuildTags}
