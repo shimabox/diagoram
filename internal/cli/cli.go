@@ -84,6 +84,9 @@ Options:
                       --package-diagram.
   --include='glob'    Only analyze files matching glob (repeatable;
                       default "*.go")
+  --include-dir='glob'
+                      Only analyze matching relative directories and their
+                      descendants (repeatable)
   --exclude='glob'    Skip files matching glob (repeatable; default
                       "*_test.go"; repeating --exclude replaces the
                       default rather than adding to it)
@@ -169,6 +172,8 @@ type Options struct {
 	Exclude []string
 	// ExcludeDirs contains relative directory globs passed via --exclude-dir.
 	ExcludeDirs []string
+	// IncludeDirs contains relative directory globs passed via --include-dir.
+	IncludeDirs []string
 	// GOOS and GOARCH select an explicit build context.
 	GOOS   string
 	GOARCH string
@@ -248,6 +253,13 @@ func parseArgs(args []string, stderr io.Writer) (*Options, error) {
 			return fmt.Errorf("invalid exclude-dir glob %q: %w", v, err)
 		}
 		opts.ExcludeDirs = append(opts.ExcludeDirs, v)
+		return nil
+	})
+	fs.Func("include-dir", "only analyze matching relative directories and descendants (repeatable)", func(v string) error {
+		if _, err := pathpkg.Match(v, ""); err != nil {
+			return fmt.Errorf("invalid include-dir glob %q: %w", v, err)
+		}
+		opts.IncludeDirs = append(opts.IncludeDirs, v)
 		return nil
 	})
 	fs.StringVar(&opts.GOOS, "goos", "", "select files for this GOOS")
@@ -365,6 +377,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		Includes:    opts.Include,
 		Excludes:    opts.Exclude,
 		ExcludeDirs: excludeDirs,
+		IncludeDirs: opts.IncludeDirs,
 	}
 	if opts.GOOS != "" || opts.GOARCH != "" || len(opts.BuildTags) > 0 {
 		parseOptions.BuildContext = &gocode.BuildContext{GOOS: opts.GOOS, GOARCH: opts.GOARCH, Tags: opts.BuildTags}

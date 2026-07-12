@@ -172,6 +172,12 @@ func TestRun(t *testing.T) {
 			wantStderrHas: "invalid exclude-dir glob",
 		},
 		{
+			name:          "malformed include-dir glob is rejected",
+			args:          []string{"--include-dir=[", fixturesDir + "/basic"},
+			wantCode:      1,
+			wantStderrHas: "invalid include-dir glob",
+		},
+		{
 			name:          "malformed function glob is rejected",
 			args:          []string{"--function=[", fixturesDir + "/basic"},
 			wantCode:      1,
@@ -551,6 +557,23 @@ func TestRunE2E_PublicAPI(t *testing.T) {
 	for _, unwanted := range []string{"private", "InternalType", "ExampleType", "TestType", "BenchmarkType"} {
 		if strings.Contains(got, unwanted) {
 			t.Errorf("stdout = %q, do not want %q", got, unwanted)
+		}
+	}
+}
+
+func TestRunE2E_IncludeDir(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"--summary", "--include-dir=product/attribute", fixturesDir + "/multi-package"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("Run exit code = %d, want 0 (stderr=%q)", code, stderr.String())
+	}
+	got := stdout.String()
+	if !strings.Contains(got, "Color") {
+		t.Errorf("stdout = %q, want selected Color package", got)
+	}
+	for _, unwanted := range []string{"Product", "Config"} {
+		if strings.Contains(got, unwanted) {
+			t.Errorf("stdout = %q, do not want unselected %q", got, unwanted)
 		}
 	}
 }

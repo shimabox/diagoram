@@ -170,6 +170,30 @@ func TestDiscoverDirsCustomDirectoryExcludes(t *testing.T) {
 	assertDirFiles(t, got, want)
 }
 
+func TestDiscoverDirsCustomDirectoryIncludes(t *testing.T) {
+	dir := t.TempDir()
+	writeFiles(t, dir, map[string]string{
+		"root.go":          "package root\n",
+		"pkg/keep.go":      "package pkg\n",
+		"pkg/deep/keep.go": "package deep\n",
+		"pkg/skip/skip.go": "package skip\n",
+		"other/other.go":   "package other\n",
+	})
+
+	got, err := discoverDirs(dir, ParseOptions{
+		IncludeDirs: []string{"pkg"},
+		ExcludeDirs: []string{"skip"},
+	})
+	if err != nil {
+		t.Fatalf("discoverDirs: %v", err)
+	}
+	want := []dirFiles{
+		{Dir: "pkg", Files: []string{"keep.go"}},
+		{Dir: "pkg/deep", Files: []string{"keep.go"}},
+	}
+	assertDirFiles(t, got, want)
+}
+
 func TestDiscoverDirsBuildContext(t *testing.T) {
 	dir := t.TempDir()
 	writeFiles(t, dir, map[string]string{

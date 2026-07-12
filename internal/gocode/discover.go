@@ -62,18 +62,24 @@ func discoverDirs(rootDir string, opt ParseOptions) ([]dirFiles, error) {
 		if !d.IsDir() {
 			return nil
 		}
+		rel := "."
 		if path != rootDir {
 			base := d.Name()
 			if skipDirNames[base] || strings.HasPrefix(base, ".") {
 				return fs.SkipDir
 			}
-			rel, err := filepath.Rel(rootDir, path)
+			var err error
+			rel, err = filepath.Rel(rootDir, path)
 			if err != nil {
 				return err
 			}
 			if matchAnyPath(opt.ExcludeDirs, filepath.ToSlash(rel)) {
 				return fs.SkipDir
 			}
+		}
+		rel = filepath.ToSlash(rel)
+		if len(opt.IncludeDirs) > 0 && !matchIncludedPath(opt.IncludeDirs, rel) {
+			return nil
 		}
 
 		entries, err := os.ReadDir(path)
@@ -119,12 +125,6 @@ func discoverDirs(rootDir string, opt ParseOptions) ([]dirFiles, error) {
 		}
 		sort.Strings(files)
 
-		rel, err := filepath.Rel(rootDir, path)
-		if err != nil {
-			return err
-		}
-		rel = filepath.ToSlash(rel)
-
 		results = append(results, dirFiles{Dir: rel, AbsDir: path, Files: files})
 		return nil
 	})
@@ -134,6 +134,17 @@ func discoverDirs(rootDir string, opt ParseOptions) ([]dirFiles, error) {
 
 	sort.Slice(results, func(i, j int) bool { return results[i].Dir < results[j].Dir })
 	return results, nil
+}
+
+func matchIncludedPath(patterns []string, name string) bool {
+	for current := name; ; current = pathpkg.Dir(current) {
+		if matchAnyPath(patterns, current) {
+			return true
+		}
+		if current == "." {
+			return false
+		}
+	}
 }
 
 func requiresIgnoreBuildTag(filename string) (bool, error) {

@@ -24,6 +24,9 @@ type ParseOptions struct {
 	// ExcludeDirs is a list of slash-separated glob patterns matched
 	// against directory paths relative to the analysis root.
 	ExcludeDirs []string
+	// IncludeDirs limits analysis to matching relative directories and
+	// their descendants. Empty includes every directory.
+	IncludeDirs []string
 	// BuildContext enables build-constraint and filename-suffix filtering.
 	// Nil keeps the source-union behavior and analyzes every matching file.
 	BuildContext *BuildContext
