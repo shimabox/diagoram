@@ -124,6 +124,12 @@ func TestRun(t *testing.T) {
 			wantStdoutHas: "--summary",
 		},
 		{
+			name:          "-h mentions --report",
+			args:          []string{"-h"},
+			wantCode:      0,
+			wantStdoutHas: "--report",
+		},
+		{
 			name:          "-h mentions --format",
 			args:          []string{"-h"},
 			wantCode:      0,
@@ -724,6 +730,87 @@ func TestRunE2E_ShowEdgeReasons(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "Key [field,map-key]") {
 		t.Errorf("stdout = %q, want field and map-key reasons", stdout.String())
+	}
+}
+
+func TestRunE2E_Report(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"--report", "--public-api", "--show-functions", "--function=New*", "--max-members=1", fixturesDir + "/basic"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("Run exit code = %d, want 0 (stderr=%q)", code, stderr.String())
+	}
+
+	got := stdout.String()
+	for _, want := range []string{
+		"# Go source analysis report",
+		"## Scope",
+		"- Build context `union`",
+		"## Analysis settings",
+		"- Public API `enabled`",
+		"- Function filters `New*`",
+		"- Include files `*.go`",
+		"- Exclude files `*_test.go`",
+		"- Exclude directories `internal, tests, example, examples, _examples, benchmark`",
+		"- Members per diagram category `1`",
+		"## Structural summary",
+		"```text",
+		"## Class diagram",
+		"```mermaid",
+		"Product",
+		"NewProduct",
+		"function-result",
+		"## Diagnostics",
+		"None",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("stdout does not contain %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "newInternalProduct") {
+		t.Errorf("stdout contains unexported function despite --public-api:\n%s", got)
+	}
+}
+
+func TestRunE2E_ReportIncludesWarnings(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"--report", fixturesDir + "/edge-cases"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("Run exit code = %d, want 0 (stderr=%q)", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "## Diagnostics\n\n- broken.go") {
+		t.Errorf("stdout = %q, want warning in report diagnostics", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "Warning: broken.go") {
+		t.Errorf("stderr = %q, want warning for interactive use", stderr.String())
+	}
+}
+
+func TestRunE2E_ReportUsesCurrentBuildContext(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"--report", "--build-context=current", fixturesDir + "/basic"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("Run exit code = %d, want 0 (stderr=%q)", code, stderr.String())
+	}
+	if !strings.HasPrefix(stdout.String(), "# Go source analysis report") {
+		t.Errorf("stdout = %q, want a standalone Markdown report", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "- Build context `GOOS=") {
+		t.Errorf("stdout = %q, want resolved current build context", stdout.String())
+	}
+}
+
+func TestRunReportRejectsConflictingOutputs(t *testing.T) {
+	for _, args := range [][]string{
+		{"--report", "--summary", fixturesDir + "/basic"},
+		{"--report", "--package-diagram", fixturesDir + "/basic"},
+	} {
+		var stdout, stderr bytes.Buffer
+		if code := Run(args, &stdout, &stderr); code == 0 {
+			t.Errorf("Run(%v) exit code = 0, want non-zero", args)
+		}
+		if !strings.Contains(stderr.String(), "--report") {
+			t.Errorf("Run(%v) stderr = %q, want --report conflict", args, stderr.String())
+		}
 	}
 }
 

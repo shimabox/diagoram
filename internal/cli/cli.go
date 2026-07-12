@@ -42,7 +42,7 @@ Options:
                       Cannot be combined with --class-diagram.
   --format=mermaid|plantuml
                       Output format (default "mermaid"). Ignored
-                      (harmless) when combined with --summary.
+                      (harmless) when combined with --summary or --report.
   --show-external     Also draw packages outside <dir> (the standard
                       library, other modules) as light-colored nodes.
                       Only affects --package-diagram; ignored
@@ -90,6 +90,10 @@ Options:
   --summary           Print a plain-text summary of the analyzed types
                       instead of a diagram. Cannot be combined with
                       --package-diagram.
+  --report            Print a Markdown report containing the analysis
+                      settings, structural summary, Mermaid class diagram,
+                      and diagnostics. Cannot be combined with --summary or
+                      --package-diagram.
   --include='glob'    Only analyze files matching glob (repeatable;
                       default "*.go")
   --include-dir='glob'
@@ -132,7 +136,7 @@ type Options struct {
 	// Format selects the output format (--format): "mermaid" (the
 	// default) or "plantuml". It is validated in Run, not parseArgs, so
 	// that an invalid value can be reported alongside the list of
-	// valid ones; it is ignored (harmless) when Summary is set.
+	// valid ones; it is ignored (harmless) when Summary or Report is set.
 	Format string
 	// ShowExternal includes packages outside the analyzed directory
 	// (the standard library, other modules) in the package diagram, as
@@ -172,6 +176,10 @@ type Options struct {
 	// Summary requests a plain-text summary instead of a diagram
 	// (--summary). It cannot be combined with PackageDiagram.
 	Summary bool
+	// Report requests a Markdown analysis report intended for review by
+	// people or generative AI. It cannot be combined with Summary or
+	// PackageDiagram.
+	Report bool
 	// RelTargets is the list of --rel-target names (already split on
 	// commas across every occurrence of the flag) that scope a class
 	// diagram/summary to the types reachable from them. Empty means no
@@ -260,6 +268,7 @@ func parseArgs(args []string, stderr io.Writer) (*Options, error) {
 	fs.BoolVar(&opts.DisableImplements, "disable-implements", false, "do not draw heuristically detected interface implementations")
 	fs.BoolVar(&opts.ShowEdgeReasons, "show-edge-reasons", false, "annotate relationships with their source constructs")
 	fs.BoolVar(&opts.Summary, "summary", false, "print a plain-text summary of the analyzed types instead of a diagram")
+	fs.BoolVar(&opts.Report, "report", false, "print a Markdown analysis report")
 	fs.IntVar(&opts.RelTargetDepth, "rel-target-depth", 1, "with --rel-target, how many hops of edges to follow from the target types")
 	fs.Func("rel-target", "only include types reachable from these names (comma-separated; type name or pkg.Type; repeatable)", func(v string) error {
 		for _, part := range strings.Split(v, ",") {
@@ -376,6 +385,14 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "Error: --summary and --package-diagram cannot be used together. --summary only describes the class diagram's types.\n\n%s", usage)
 		return 1
 	}
+	if opts.Report && opts.Summary {
+		fmt.Fprintf(stderr, "Error: --report and --summary cannot be used together. --report already contains a structural summary.\n\n%s", usage)
+		return 1
+	}
+	if opts.Report && opts.PackageDiagram {
+		fmt.Fprintf(stderr, "Error: --report and --package-diagram cannot be used together. --report describes the class diagram's types.\n\n%s", usage)
+		return 1
+	}
 	if opts.MaxMembers < 0 {
 		fmt.Fprintf(stderr, "Error: --max-members must be zero or greater.\n\n%s", usage)
 		return 1
@@ -481,7 +498,13 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			d = filtered
 		}
 
-		if opts.Summary {
+		if opts.Report {
+			out, err = markdownReport(opts, d, warnings, modulePath, parseOptions.BuildContext)
+			if err != nil {
+				fmt.Fprintf(stderr, "Error: cannot render report: %v\n", err)
+				return 1
+			}
+		} else if opts.Summary {
 			out = diagram.Summary(d, diagram.SummaryOptions{
 				HideUnexported:    opts.HideUnexported,
 				DisableFields:     opts.DisableFields,
@@ -513,7 +536,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 
-	if opts.BuildContextMode != "" || opts.GOOS != "" || opts.GOARCH != "" || len(opts.BuildTags) > 0 {
+	if !opts.Report && (opts.BuildContextMode != "" || opts.GOOS != "" || opts.GOARCH != "" || len(opts.BuildTags) > 0) {
 		out = prependBuildContext(out, opts, parseOptions.BuildContext)
 	}
 	fmt.Fprint(stdout, out)
@@ -521,6 +544,18 @@ func Run(args []string, stdout, stderr io.Writer) int {
 }
 
 func prependBuildContext(out string, opts *Options, selected *gocode.BuildContext) string {
+	description := buildContextDescription(selected)
+	line := "diagoram build context: " + description
+	if opts.Summary {
+		return line + "\n" + out
+	}
+	if opts.Format == "plantuml" {
+		return "' " + line + "\n" + out
+	}
+	return "%% " + line + "\n" + out
+}
+
+func buildContextDescription(selected *gocode.BuildContext) string {
 	description := "union"
 	if selected != nil {
 		goos, goarch := selected.GOOS, selected.GOARCH
@@ -535,12 +570,5 @@ func prependBuildContext(out string, opts *Options, selected *gocode.BuildContex
 			description += " tags=" + strings.Join(selected.Tags, ",")
 		}
 	}
-	line := "diagoram build context: " + description
-	if opts.Summary {
-		return line + "\n" + out
-	}
-	if opts.Format == "plantuml" {
-		return "' " + line + "\n" + out
-	}
-	return "%% " + line + "\n" + out
+	return description
 }
