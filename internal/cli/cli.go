@@ -7,6 +7,7 @@ package cli
 import (
 	"flag"
 	"fmt"
+	"go/build"
 	"io"
 	"os"
 	pathpkg "path"
@@ -106,6 +107,8 @@ Options:
                       constraint filtering.
   --build-tag=tag     Add a satisfied build tag (repeatable). Enables
                       build constraint filtering.
+  --build-context=union|current
+                      Explicitly use source-union or current Go build context.
   -h, --help          Show this help message and exit
   -v, --version       Show version information and exit
 `
@@ -195,6 +198,9 @@ type Options struct {
 	GOARCH string
 	// BuildTags contains repeatable --build-tag values.
 	BuildTags []string
+	// BuildContextMode is empty for the implicit union, or an explicitly
+	// requested "union" or "current" mode.
+	BuildContextMode string
 	// Dir is the directory to analyze.
 	Dir string
 }
@@ -299,6 +305,7 @@ func parseArgs(args []string, stderr io.Writer) (*Options, error) {
 		opts.BuildTags = append(opts.BuildTags, v)
 		return nil
 	})
+	fs.StringVar(&opts.BuildContextMode, "build-context", "", `explicit build context: "union" or "current"`)
 
 	if err := fs.Parse(args); err != nil {
 		return nil, err
@@ -372,6 +379,14 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "Error: --exclude-generated and --generated-only cannot be used together.\n\n%s", usage)
 		return 1
 	}
+	if opts.BuildContextMode != "" && opts.BuildContextMode != "union" && opts.BuildContextMode != "current" {
+		fmt.Fprintf(stderr, "Error: unknown --build-context %q. Valid values: union, current.\n\n%s", opts.BuildContextMode, usage)
+		return 1
+	}
+	if opts.BuildContextMode == "union" && (opts.GOOS != "" || opts.GOARCH != "" || len(opts.BuildTags) > 0) {
+		fmt.Fprintf(stderr, "Error: --build-context=union cannot be combined with --goos, --goarch, or --build-tag.\n\n%s", usage)
+		return 1
+	}
 
 	renderer, formatErr := selectRenderer(opts.Format)
 	if formatErr != nil {
@@ -419,7 +434,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	} else if opts.GeneratedOnly {
 		parseOptions.GeneratedFiles = gocode.GeneratedFilesOnly
 	}
-	if opts.GOOS != "" || opts.GOARCH != "" || len(opts.BuildTags) > 0 {
+	if opts.BuildContextMode == "current" || opts.GOOS != "" || opts.GOARCH != "" || len(opts.BuildTags) > 0 {
 		parseOptions.BuildContext = &gocode.BuildContext{GOOS: opts.GOOS, GOARCH: opts.GOARCH, Tags: opts.BuildTags}
 	}
 	pkgs, warnings, err := gocode.Parse(opts.Dir, parseOptions)
@@ -491,6 +506,34 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 
+	if opts.BuildContextMode != "" || opts.GOOS != "" || opts.GOARCH != "" || len(opts.BuildTags) > 0 {
+		out = prependBuildContext(out, opts, parseOptions.BuildContext)
+	}
 	fmt.Fprint(stdout, out)
 	return 0
+}
+
+func prependBuildContext(out string, opts *Options, selected *gocode.BuildContext) string {
+	description := "union"
+	if selected != nil {
+		goos, goarch := selected.GOOS, selected.GOARCH
+		if goos == "" {
+			goos = build.Default.GOOS
+		}
+		if goarch == "" {
+			goarch = build.Default.GOARCH
+		}
+		description = "GOOS=" + goos + " GOARCH=" + goarch
+		if len(selected.Tags) > 0 {
+			description += " tags=" + strings.Join(selected.Tags, ",")
+		}
+	}
+	line := "diagoram build context: " + description
+	if opts.Summary {
+		return line + "\n" + out
+	}
+	if opts.Format == "plantuml" {
+		return "' " + line + "\n" + out
+	}
+	return "%% " + line + "\n" + out
 }

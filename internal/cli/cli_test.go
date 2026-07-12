@@ -213,6 +213,18 @@ func TestRun(t *testing.T) {
 			wantCode:      1,
 			wantStderrHas: "cannot be used together",
 		},
+		{
+			name:          "unknown build context is rejected",
+			args:          []string{"--build-context=other", fixturesDir + "/basic"},
+			wantCode:      1,
+			wantStderrHas: "unknown --build-context",
+		},
+		{
+			name:          "union context rejects selectors",
+			args:          []string{"--build-context=union", "--goos=linux", fixturesDir + "/basic"},
+			wantCode:      1,
+			wantStderrHas: "cannot be combined",
+		},
 	}
 
 	for _, tt := range tests {
@@ -675,6 +687,32 @@ func TestRunE2E_HideAliases(t *testing.T) {
 	}
 	if !strings.Contains(got, "Item") || !strings.Contains(got, "7 named types") {
 		t.Errorf("stdout = %q, want underlying Item and seven remaining named types", got)
+	}
+}
+
+func TestRunE2E_BuildContextProvenance(t *testing.T) {
+	tests := []struct {
+		name       string
+		args       []string
+		wantPrefix string
+	}{
+		{name: "union summary", args: []string{"--summary", "--build-context=union"}, wantPrefix: "diagoram build context: union\n"},
+		{name: "current summary", args: []string{"--summary", "--build-context=current"}, wantPrefix: "diagoram build context: GOOS="},
+		{name: "selected mermaid", args: []string{"--goos=linux"}, wantPrefix: "%% diagoram build context: GOOS=linux"},
+		{name: "selected plantuml", args: []string{"--format=plantuml", "--goarch=amd64"}, wantPrefix: "' diagoram build context: GOOS="},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			args := append(tt.args, fixturesDir+"/basic")
+			code := Run(args, &stdout, &stderr)
+			if code != 0 {
+				t.Fatalf("Run exit code = %d, want 0 (stderr=%q)", code, stderr.String())
+			}
+			if !strings.HasPrefix(stdout.String(), tt.wantPrefix) {
+				t.Errorf("stdout = %q, want prefix %q", stdout.String(), tt.wantPrefix)
+			}
+		})
 	}
 }
 

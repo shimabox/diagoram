@@ -112,6 +112,7 @@ docker run --rm -v "$PWD:/work" plantuml/plantuml -tsvg /work/diagram.puml
 | `--goos=GOOS` | 対象GOOSのbuild constraintを適用 |
 | `--goarch=GOARCH` | 対象GOARCHのbuild constraintを適用 |
 | `--build-tag=tag` | build tagを追加。複数指定可 |
+| `--build-context=union\|current` | source unionまたは現在のGo build contextを明示 |
 | `-h`, `--help` | ヘルプを表示 |
 | `-v`, `--version` | バージョンを表示 |
 
