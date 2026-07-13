@@ -319,7 +319,7 @@ func Build(pkgs []*gocode.Package) *Diagram {
 	return BuildWithModulePath(pkgs, "")
 }
 
-// BuildWithModulePath builds a class diagram and uses modulePath to resolve
+// BuildWithModulePath builds a diagram of types and relationships and uses modulePath to resolve
 // imports to analyzed packages exactly, including the module's root package.
 // An empty modulePath preserves Build's suffix-based fallback behavior.
 func BuildWithModulePath(pkgs []*gocode.Package, modulePath string) *Diagram {

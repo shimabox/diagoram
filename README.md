@@ -81,7 +81,7 @@ diagoram --report --public-api --exclude-generated --max-members=20 . > analysis
 sed -n '1,40p' analysis.md
 ```
 
-`Go source analysis report` から始まり、Scope、Analysis settings、Structural summary、Class diagram、Diagnosticsがあれば解析できています。GitHubやVS CodeのMarkdownプレビューではMermaid図も確認できます。
+`Go source analysis report` から始まり、Scope、Analysis settings、Structural summary、Types and relationships、Diagnosticsがあれば解析できています。GitHubやVS CodeのMarkdownプレビューではMermaid図も確認できます。
 
 <details>
 <summary>レポートの先頭例を見る</summary>
@@ -123,10 +123,10 @@ diagoram --report --rel-target=Product --rel-target-depth=2 --max-members=30 . >
 <details>
 <summary>図だけを出力する</summary>
 
-Mermaidのクラス図を出力します。
+structやinterface、名前付き型と、それらの依存関係をMermaid図で出力します。
 
 ```sh
-diagoram . > class-diagram.md
+diagoram . > types.md
 ```
 
 パッケージ間のimport関係を出力します。
@@ -142,7 +142,7 @@ diagoram --package-diagram . > package-diagram.md
 | 出力 | 分かること |
 |---|---|
 | 解析レポート | 型の構成、依存の理由、解析条件、読み飛ばしたファイル |
-| クラス図 | struct、interface、名前付き型、メンバー、型同士の関係 |
+| 型と依存関係の図 | struct、interface、名前付き型、メンバー、型同士の関係 |
 | パッケージ依存図 | ディレクトリ構造、import関係、相互依存 |
 | 構造要約 | パッケージごとの型、メンバー数、主な依存関係 |
 
@@ -151,7 +151,7 @@ diagoram --package-diagram . > package-diagram.md
 <details>
 <summary>diagoram自身の解析結果を見る</summary>
 
-クラス図は `internal/gocode` を対象にしています。
+`internal/gocode` の型やメンバー、依存関係を表示しています。
 
 <!-- DOGFOOD:CLASS:START -->
 ```mermaid

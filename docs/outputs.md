@@ -14,7 +14,7 @@ diagoram --report --public-api --max-members=20 . > analysis.md
 - GOOS、GOARCH、build tag
 - 適用した絞り込み条件
 - 型と依存関係の構造要約
-- 依存が生じた理由を付けたMermaidクラス図
+- 依存が生じた理由を付けたMermaid図
 - 解析できなかったファイルの警告
 
 レポート本文は英語で出力されます。diagoram自身は生成AIを呼び出さず、ソースコードから得た事実を一定の形式で出力します。設計評価や改善案は、このレポートを渡した生成AIやレビュー担当者が作成します。
@@ -26,9 +26,9 @@ diagoram --report --public-api --include-dir=api --max-members=20 . > api-analys
 diagoram --report --rel-target=Order --rel-target-depth=2 . > order-analysis.md
 ```
 
-## クラス図
+## 型と依存関係
 
-引数に指定したディレクトリ以下を解析し、Mermaidのクラス図を標準出力へ出します。
+引数に指定したディレクトリ以下を解析し、structやinterface、名前付き型と、それらの依存関係をMermaid図として標準出力へ出します。
 
 ```sh
 diagoram ./shop
@@ -74,7 +74,7 @@ diagoram --summary --public-api .
 
 ## PlantUML
 
-クラス図とパッケージ依存図はPlantUMLでも出力できます。
+型や依存関係、パッケージ依存はPlantUMLでも図にできます。
 
 ```sh
 diagoram --format=plantuml . > diagram.puml

@@ -33,7 +33,7 @@ func New() *Renderer {
 	return &Renderer{}
 }
 
-// Render returns d as a PlantUML class diagram: an "@startuml
+// Render returns d as PlantUML output: an "@startuml
 // class-diagram" / "@enduml" pair wrapping one "package ... as ... {
 // }" block per non-root package that declares at least one Entry
 // (root-level Entries, if any, are rendered directly with no package

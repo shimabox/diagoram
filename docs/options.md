@@ -8,7 +8,7 @@ diagoram [options] <dir>
 
 | オプション | 説明 |
 |---|---|
-| `--class-diagram` | クラス図を出力。デフォルト |
+| `--class-diagram` | 型と依存関係を図で出力。デフォルト |
 | `--package-diagram` | パッケージ依存図を出力 |
 | `--summary` | 型と依存関係をテキストで要約 |
 | `--report` | 構造要約、Mermaid図、解析条件、警告をMarkdownで出力 |

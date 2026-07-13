@@ -33,11 +33,10 @@ const usage = `Usage: diagoram [options] <dir>
 Analyze Go source code under <dir> and generate a diagram.
 
 Options:
-  --class-diagram     Output a class diagram (default). Cannot be
-                      combined with --package-diagram.
-  --package-diagram   Output a package dependency diagram instead of
-                      a class diagram. Packages that directly import
-                      each other (a two-package import cycle) are
+  --class-diagram     Output types and their relationships (default). Cannot
+                      be combined with --package-diagram.
+  --package-diagram   Output package dependencies instead. Packages that
+                      directly import each other (a two-package import cycle) are
                       drawn with a red, bold, bidirectional arrow.
                       Cannot be combined with --class-diagram.
   --format=mermaid|plantuml
@@ -52,30 +51,30 @@ Options:
                       example, test, and benchmark directories.
   --hide-unexported   Hide unexported types, fields, and methods. Only affects
                       --class-diagram (and --summary); ignored otherwise.
-  --hide-aliases      Hide type aliases from class diagrams and summaries.
-  --show-constants    Show constants associated with named types in
-                      class diagrams. Ignored otherwise.
-  --show-functions    Show package-level functions in a synthetic class.
-                      Only affects class diagrams.
+  --hide-aliases      Hide type aliases from the diagram and summary.
+  --show-constants    Show constants associated with named types in the
+                      diagram. Ignored otherwise.
+  --show-functions    Show package-level functions in a synthetic entry.
+                      Only affects --class-diagram.
   --function='glob'   Only show package functions whose name matches glob.
-                      Repeatable; implies --show-functions for class diagrams.
+                      Repeatable; implies --show-functions for the diagram.
   --method='glob'     Only show methods whose name matches glob. Repeatable.
   --receiver='glob'   Only show concrete methods whose receiver base type
                       matches glob. Repeatable.
   --max-members=N     Show at most N fields, methods, constants, and package
                       functions per entry. Omitted counts are reported.
-  --disable-fields    Do not draw fields in the class diagram. Only
-                      affects --class-diagram (and --summary); ignored
+  --disable-fields    Do not draw fields. Only affects --class-diagram
+                      (and --summary); ignored
                       otherwise.
-  --disable-methods   Do not draw methods in the class diagram. Only
-                      affects --class-diagram (and --summary); ignored
+  --disable-methods   Do not draw methods. Only affects --class-diagram
+                      (and --summary); ignored
                       otherwise.
   --disable-implements
                       Do not draw heuristically detected "struct
                       implements interface" relationships. Only
                       affects --class-diagram (and --summary); ignored
                       otherwise.
-  --show-edge-reasons Annotate class-diagram edges and summary dependencies
+  --show-edge-reasons Annotate diagram edges and summary dependencies
                       with source reasons such as field or map-key.
   --rel-target='A,B'  Only include types reachable from these names
                       (comma-separated; a bare type name such as
@@ -90,10 +89,9 @@ Options:
   --summary           Print a plain-text summary of the analyzed types
                       instead of a diagram. Cannot be combined with
                       --package-diagram.
-  --report            Print a Markdown report containing the analysis
-                      settings, structural summary, Mermaid class diagram,
-                      and diagnostics. Cannot be combined with --summary or
-                      --package-diagram.
+  --report            Print a Markdown report containing the analysis settings,
+                      structural summary, Mermaid visualization, and diagnostics.
+                      Cannot be combined with --summary or --package-diagram.
   --include='glob'    Only analyze files matching glob (repeatable;
                       default "*.go")
   --include-dir='glob'
@@ -125,13 +123,13 @@ type Options struct {
 	Help bool
 	// Version requests that version information be printed.
 	Version bool
-	// ClassDiagram requests a class diagram. This is Run's default
+	// ClassDiagram requests the default type visualization. This is Run's default
 	// output, so passing it has no effect on its own; it exists so
 	// scripts can be explicit, and so Run can reject combining it with
 	// PackageDiagram.
 	ClassDiagram bool
 	// PackageDiagram requests a package dependency diagram instead of
-	// a class diagram. It cannot be combined with ClassDiagram.
+	// the default type visualization. It cannot be combined with ClassDiagram.
 	PackageDiagram bool
 	// Format selects the output format (--format): "mermaid" (the
 	// default) or "plantuml". It is validated in Run, not parseArgs, so
@@ -144,15 +142,15 @@ type Options struct {
 	// harmless (silently ignored) otherwise.
 	ShowExternal bool
 	// HideUnexported hides unexported fields/methods (--hide-unexported).
-	// It only affects a class diagram/summary; harmless otherwise.
+	// It only affects the type visualization/summary; harmless otherwise.
 	HideUnexported bool
-	// HideAliases removes named type aliases from class diagrams and summaries.
+	// HideAliases removes named type aliases from the visualization and summary.
 	HideAliases bool
 	// PublicAPI enables the externally importable API preset.
 	PublicAPI bool
-	// ShowConstants includes named-type constants in class diagrams.
+	// ShowConstants includes named-type constants in the type visualization.
 	ShowConstants bool
-	// ShowFunctions includes package-level functions in class diagrams.
+	// ShowFunctions includes package-level functions in the type visualization.
 	ShowFunctions bool
 	// FunctionPatterns and MethodPatterns contain repeatable member-name globs.
 	FunctionPatterns []string
@@ -161,14 +159,14 @@ type Options struct {
 	ReceiverPatterns []string
 	// MaxMembers limits each displayed member category. Zero is unlimited.
 	MaxMembers int
-	// DisableFields omits fields from a class diagram/summary
+	// DisableFields omits fields from the type visualization/summary
 	// (--disable-fields). It only affects those; harmless otherwise.
 	DisableFields bool
-	// DisableMethods omits methods from a class diagram/summary
+	// DisableMethods omits methods from the type visualization/summary
 	// (--disable-methods). It only affects those; harmless otherwise.
 	DisableMethods bool
 	// DisableImplements omits heuristically detected implementation
-	// edges from a class diagram/summary (--disable-implements). It
+	// edges from the type visualization/summary (--disable-implements). It
 	// only affects those; harmless otherwise.
 	DisableImplements bool
 	// ShowEdgeReasons annotates relationships with source constructs.
@@ -183,7 +181,7 @@ type Options struct {
 	// RelTargets is the list of --rel-target names (already split on
 	// commas across every occurrence of the flag) that scope a class
 	// diagram/summary to the types reachable from them. Empty means no
-	// filtering. It only affects a class diagram/summary; harmless
+	// filtering. It only affects the type visualization/summary; harmless
 	// otherwise.
 	RelTargets []string
 	// RelTargetDepth is how many hops FilterByRelTarget follows from
@@ -232,7 +230,7 @@ func parseArgs(args []string, stderr io.Writer) (*Options, error) {
 	fs.BoolVar(&opts.Help, "help", false, "show this help message and exit")
 	fs.BoolVar(&opts.Version, "v", false, "show version information and exit")
 	fs.BoolVar(&opts.Version, "version", false, "show version information and exit")
-	fs.BoolVar(&opts.ClassDiagram, "class-diagram", false, "output a class diagram (default)")
+	fs.BoolVar(&opts.ClassDiagram, "class-diagram", false, "output types and their relationships (default)")
 	fs.BoolVar(&opts.PackageDiagram, "package-diagram", false, "output a package dependency diagram")
 	fs.StringVar(&opts.Format, "format", "mermaid", `output format: "mermaid" or "plantuml"`)
 	fs.BoolVar(&opts.ShowExternal, "show-external", false, "also draw packages outside <dir> in the package diagram")
@@ -240,7 +238,7 @@ func parseArgs(args []string, stderr io.Writer) (*Options, error) {
 	fs.BoolVar(&opts.HideUnexported, "hide-unexported", false, "hide unexported types, fields, and methods")
 	fs.BoolVar(&opts.HideAliases, "hide-aliases", false, "hide named type aliases")
 	fs.BoolVar(&opts.ShowConstants, "show-constants", false, "show constants associated with named types")
-	fs.BoolVar(&opts.ShowFunctions, "show-functions", false, "show package-level functions in a synthetic class")
+	fs.BoolVar(&opts.ShowFunctions, "show-functions", false, "show package-level functions in a synthetic entry")
 	fs.Func("function", "only show package functions matching this name glob (repeatable)", func(v string) error {
 		if _, err := pathpkg.Match(v, ""); err != nil {
 			return fmt.Errorf("invalid function glob %q: %w", v, err)
@@ -263,8 +261,8 @@ func parseArgs(args []string, stderr io.Writer) (*Options, error) {
 		return nil
 	})
 	fs.IntVar(&opts.MaxMembers, "max-members", 0, "maximum members shown per category (0 means unlimited)")
-	fs.BoolVar(&opts.DisableFields, "disable-fields", false, "do not draw fields in the class diagram")
-	fs.BoolVar(&opts.DisableMethods, "disable-methods", false, "do not draw methods in the class diagram")
+	fs.BoolVar(&opts.DisableFields, "disable-fields", false, "do not draw fields in the type visualization")
+	fs.BoolVar(&opts.DisableMethods, "disable-methods", false, "do not draw methods in the type visualization")
 	fs.BoolVar(&opts.DisableImplements, "disable-implements", false, "do not draw heuristically detected interface implementations")
 	fs.BoolVar(&opts.ShowEdgeReasons, "show-edge-reasons", false, "annotate relationships with their source constructs")
 	fs.BoolVar(&opts.Summary, "summary", false, "print a plain-text summary of the analyzed types instead of a diagram")
@@ -382,7 +380,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if opts.Summary && opts.PackageDiagram {
-		fmt.Fprintf(stderr, "Error: --summary and --package-diagram cannot be used together. --summary only describes the class diagram's types.\n\n%s", usage)
+		fmt.Fprintf(stderr, "Error: --summary and --package-diagram cannot be used together. --summary describes types and their relationships.\n\n%s", usage)
 		return 1
 	}
 	if opts.Report && opts.Summary {
@@ -390,7 +388,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	if opts.Report && opts.PackageDiagram {
-		fmt.Fprintf(stderr, "Error: --report and --package-diagram cannot be used together. --report describes the class diagram's types.\n\n%s", usage)
+		fmt.Fprintf(stderr, "Error: --report and --package-diagram cannot be used together. --report describes types and their relationships.\n\n%s", usage)
 		return 1
 	}
 	if opts.MaxMembers < 0 {

@@ -64,7 +64,7 @@ flowchart TD
 - PlantUML でのパッケージ図（Phase 6）
 
 ## 実装時の決定事項（Phase 4 完了時に記録）
-- module パス解決はパッケージ図専用の `resolvePackageImportDir`（modulePath があれば厳密一致、無ければ既存の最長サフィックスヒューリスティックにフォールバック）。クラス図側の `resolveTypeRef` は Phase 3 のまま未変更（Build のシグネチャ変更を避けるため。実プロジェクトで誤解決が出たら module パス対応を入れる）
+- module パス解決はパッケージ図専用の `resolvePackageImportDir`（modulePath があれば厳密一致、無ければ既存の最長サフィックスヒューリスティックにフォールバック）。型参照を解決する `resolveTypeRef` は Phase 3 のまま未変更（Build のシグネチャ変更を避けるため。実プロジェクトで誤解決が出たら module パス対応を入れる）
 - subgraph/ノード衝突: 子を持つパッケージは subgraph としてのみ宣言し、エッジは subgraph ID を直接端点にする（Mermaid は subgraph ID をエッジ端点にできる）。外部ノードは `ext_` プレフィックスで衝突回避
 - 相互依存エッジは辞書順に正規化した 1 本の `<-->` に集約（From/To の向きが実行ごとに揺れない）。External エッジは Mutual になり得ない
 - `PackageGraph.HasRootPackage`: ルートディレクトリ自体がパッケージの場合の描画判断用

@@ -1,7 +1,7 @@
 # Phase 6: PlantUML レンダラ
 
 **目的**: `--format=plantuml` で PlantUML スクリプトを出力できるようにする。表現力（パッケージの正確なネスト・色）が必要な場面に応える。
-**完了時の姿**: クラス図・パッケージ図の両方が PlantUML で出せる。完了時に **v0.4.0** タグ。
+**完了時の姿**: 型と依存関係の図・パッケージ図の両方が PlantUML で出せる。完了時に **v0.4.0** タグ。
 
 ## 前提
 - Phase 5 完了（IR・オプションが出揃っている）
@@ -12,7 +12,7 @@
 - `internal/render` の `Renderer` インターフェースに対する 2 実装目
 - `--format=mermaid|plantuml`（デフォルト mermaid）。不正値は候補を示してエラー
 
-### クラス図出力仕様（php-class-diagram 準拠。golden で固定）
+### 型と依存関係の出力仕様（php-class-diagram 準拠。golden で固定）
 
 ```
 @startuml class-diagram
@@ -42,7 +42,7 @@
 ## タスク（TDD 順）
 
 - [x] 6-1. 既存 fixture すべてに `expected-class.puml` / `expected-package.puml` の golden を先に書く（オーケストレーターがレビューして確定）
-- [x] 6-2. クラス図レンダラ実装 → golden 全緑
+- [x] 6-2. 型と依存関係のレンダラ実装 → golden 全緑
 - [x] 6-3. パッケージ図レンダラ実装 → golden 全緑
 - [x] 6-4. `--format` フラグの CLI 統合テスト（不正値エラー含む）
 - [x] 6-5. 出力を実際に PlantUML でレンダリングして目視確認（Docker: `docker run --rm -i plantuml/plantuml -pipe -tsvg < out.puml > out.svg` などで確認し、確認手順を README 用にメモ）

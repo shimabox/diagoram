@@ -10,7 +10,7 @@ import (
 // formatType turns a gocode.TypeRef.String value (Go source notation,
 // e.g. "[]*model.User", "map[string]int", "Box[int]",
 // "func(int) error") into a representation that is safe to place
-// inside a Mermaid class diagram member line.
+// inside a Mermaid classDiagram member line.
 //
 // Mermaid's classDiagram grammar gives special meaning to several
 // characters that are common in Go type notation:

@@ -347,7 +347,7 @@ func TestRunE2E_PackageDiagram_PlantUML(t *testing.T) {
 
 // TestRunE2E_EdgeCasesReportsWarning runs the CLI against the
 // edge-cases fixture, whose broken.go is intentionally invalid Go: it
-// must still exit 0 and produce the class diagram for everything else,
+// must still exit 0 and produce the type visualization for everything else,
 // while reporting broken.go as a warning on stderr rather than
 // aborting.
 func TestRunE2E_EdgeCasesReportsWarning(t *testing.T) {
@@ -474,7 +474,7 @@ func TestRunE2E_Summary(t *testing.T) {
 func TestRunE2E_RelTarget(t *testing.T) {
 	dir := fixturesDir + "/multi-package"
 
-	t.Run("depth 0 narrows the class diagram to just the target", func(t *testing.T) {
+	t.Run("depth 0 narrows the type visualization to just the target", func(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 
 		code := Run([]string{"--rel-target=Product", "--rel-target-depth=0", dir}, &stdout, &stderr)
@@ -754,7 +754,7 @@ func TestRunE2E_Report(t *testing.T) {
 		"- Members per diagram category `1`",
 		"## Structural summary",
 		"```text",
-		"## Class diagram",
+		"## Types and relationships",
 		"```mermaid",
 		"Product",
 		"NewProduct",

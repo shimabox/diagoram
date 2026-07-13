@@ -63,8 +63,8 @@ func markdownReport(opts *Options, d *diagram.Diagram, warnings []gocode.Warning
 	writeReportItem(&b, "Fields", visibilityText(opts.DisableFields))
 	writeReportItem(&b, "Methods", visibilityText(opts.DisableMethods))
 	writeReportItem(&b, "Interface implementations", visibilityText(opts.DisableImplements))
-	writeReportItem(&b, "Constants in class diagram", enabledText(opts.ShowConstants))
-	writeReportItem(&b, "Package functions in class diagram", enabledText(opts.ShowFunctions))
+	writeReportItem(&b, "Constants in diagram", enabledText(opts.ShowConstants))
+	writeReportItem(&b, "Package functions in diagram", enabledText(opts.ShowFunctions))
 	writeReportItem(&b, "Function filters", listText(opts.FunctionPatterns))
 	writeReportItem(&b, "Method filters", listText(opts.MethodPatterns))
 	writeReportItem(&b, "Receiver filters", listText(opts.ReceiverPatterns))
@@ -86,7 +86,7 @@ func markdownReport(opts *Options, d *diagram.Diagram, warnings []gocode.Warning
 
 	b.WriteString("\n## Structural summary\n\n```text\n")
 	b.WriteString(strings.TrimRight(summary, "\n"))
-	b.WriteString("\n```\n\n## Class diagram\n\n```mermaid\n")
+	b.WriteString("\n```\n\n## Types and relationships\n\n```mermaid\n")
 	b.WriteString(strings.TrimRight(diagramText, "\n"))
 	b.WriteString("\n```\n\n## Diagnostics\n\n")
 	if len(warnings) == 0 {

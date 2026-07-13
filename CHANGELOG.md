@@ -19,7 +19,7 @@ All notable changes to diagoram are documented in this file.
 ## [v0.4.0] - 2026-07-11
 
 ### Added
-- PlantUML renderer (`--format=plantuml`) for both the class diagram
+- PlantUML renderer (`--format=plantuml`) for both the types-and-relationships output
   and the package dependency diagram, matching the Mermaid renderer's
   output feature-for-feature (fields, methods, visibility,
   dependency/embedding/implementation edges, mutual-dependency
@@ -28,7 +28,7 @@ All notable changes to diagoram are documented in this file.
 ## [v0.3.0] - 2026-07-11
 
 ### Added
-- `--rel-target='A,B'` / `--rel-target-depth=N`: scope a class diagram
+- `--rel-target='A,B'` / `--rel-target-depth=N`: scope the types-and-relationships output
   to only the types reachable from the given type names, for large
   codebases where a full diagram is too dense to read.
 - Heuristic interface implementation detection (`..|>` edges) across
@@ -54,7 +54,7 @@ All notable changes to diagoram are documented in this file.
 
 ### Added
 - First working end-to-end MVP: `diagoram <dir>` analyzes Go source
-  with `go/parser`/`go/ast` and prints a Mermaid class diagram
+  with `go/parser`/`go/ast` and visualizes types and relationships in Mermaid
   (structs, interfaces, fields, methods, exported/unexported
   visibility, dependency and embedding edges) to stdout.
 - `--include`/`--exclude` glob filters (default `*.go` / `*_test.go`).

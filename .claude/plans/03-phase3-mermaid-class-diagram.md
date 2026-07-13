@@ -1,6 +1,6 @@
-# Phase 3: 中間表現(IR) + Mermaid クラス図 — MVP
+# Phase 3: 中間表現(IR) + Mermaidによる型と依存関係の図 — MVP
 
-**目的**: E2E で動く最初の価値。`diagoram <dir>` が Mermaid クラス図を stdout に出す。
+**目的**: E2E で動く最初の価値。`diagoram <dir>` が型と依存関係をMermaid形式で stdout に出す。
 **完了時の姿**: fixture に対する golden テストが通り、実プロジェクト（diagoram 自身）に実行して図が GitHub 上でレンダリングできる。完了時に **v0.1.0** タグ。
 
 ## 前提

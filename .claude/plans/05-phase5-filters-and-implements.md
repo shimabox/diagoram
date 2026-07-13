@@ -16,7 +16,7 @@
 - **メソッド 0 個の interface（`interface{}` 系）は除外**（全型がマッチしてしまうため）
 - 埋め込み interface はメソッドセットを展開してから比較
 - エッジ種別 `Implementation` → Mermaid では `A ..|> B`
-- クラス図が過密になる場合に備え `--disable-implements` フラグを用意
+- 型と依存関係の図が過密になる場合に備え `--disable-implements` フラグを用意
 
 ## 5B. rel-target フィルタ
 
@@ -46,7 +46,7 @@ product/
 ## タスク（TDD 順）
 
 - [x] 5-1. fixture 追加/拡充: interface 実装ペア（実装している/していない/メソッド0個 interface/埋め込み展開）を含むケース
-- [x] 5-2. 実装検出のテスト先行（table test で判定ロジックを固定）→ 実装 → クラス図 golden 更新
+- [x] 5-2. 実装検出のテスト先行（table test で判定ロジックを固定）→ 実装 → 型と依存関係の図の golden 更新
 - [x] 5-3. rel-target フィルタのテスト先行(起点1つ/複数、depth 0..2、見つからない型のエラー) → 実装 → golden
 - [x] 5-4. 表示オプション 3 種のテスト → 実装 → golden
 - [x] 5-5. `--summary` のテスト先行（golden）→ 実装
@@ -78,7 +78,7 @@ product/
 - 名前解決は「裸の型名」と「(パッケージディレクトリの最終セグメント).型名」の両方を index 化（`buildRelTargetIndex`）。同名の型が複数パッケージに存在する場合はエラーにせず全て起点に加える（`--rel-target` はスコープを絞る道具であり、曖昧性より使い勝手を優先）
 - 見つからない型は `*RelTargetNotFoundError`（`Missing`/`Candidates` を持つ）を返し、CLI は `Error: no type named "X" found. Available types: ...` の形で全既知型名を提示する
 - フィルタ後は Entry を持たない PackageNode・両端が生き残っていない Edge を再帰的に除去した新しい `*Diagram` を返す（`rebuildFiltered`/`filterNode`）。元の `Diagram` と `Entry` ポインタは変更しない（`Entry` は Build 後は不変という既存方針を踏襲）
-- CLI 統合: `--rel-target` はクラス図・`--summary` の両方に効く（`diagram.Build` の直後、Summary/Render の前にフィルタ）。`--package-diagram` と同時指定してもエラーにはせず無害に無視する（`--show-external` が `--class-diagram` 時に無害に無視されるのと同じ非対称の前例に合わせた）
+- CLI 統合: `--rel-target` は型と依存関係の図・`--summary` の両方に効く（`diagram.Build` の直後、Summary/Render の前にフィルタ）。`--package-diagram` と同時指定してもエラーにはせず無害に無視する（`--show-external` が `--class-diagram` 時に無害に無視されるのと同じ非対称の前例に合わせた）
 
 ### 5C. 表示オプション
 - `render.Options` に `HideUnexported`/`DisableFields`/`DisableMethods`/`DisableImplements` を追加し、**IR は変更せずレンダリング時にのみフィルタ**する設計にした（`render.go` のもとのドキュメントコメントが「表示オプションは後続フェーズで render.Options に足す」と明記していた設計意図に合わせた）。`internal/diagram` に `ExportedFields`/`ExportedMethods`（`visibility.go`）を切り出し、mermaid レンダラと `Summary` の両方が同じ「unexported の定義」を共有する
@@ -93,7 +93,7 @@ product/
 
 ### ドッグフーディング（diagoram 自身に対する実行確認）
 - `go run ./cmd/diagoram --summary .`: 6 packages, 26 structs, 2 interfaces を正しく集計。`internal/render/mermaid.Renderer` の行に `← implements: mermaid.Renderer`（`internal/render.Renderer` interface 側の行）が現れ、パッケージを跨いだ実装検出が実プロジェクトでも機能することを確認
-- `go run ./cmd/diagoram --rel-target=Diagram --rel-target-depth=1 .`: `internal/diagram.Diagram` 周辺だけを含む小さなクラス図が出力され、`internal_render_mermaid_Renderer ..|> internal_render_Renderer` の Implementation エッジも含まれることを確認
+- `go run ./cmd/diagoram --rel-target=Diagram --rel-target-depth=1 .`: `internal/diagram.Diagram` 周辺だけを含む小さな図が出力され、`internal_render_mermaid_Renderer ..|> internal_render_Renderer` の Implementation エッジも含まれることを確認
 - `go run ./cmd/diagoram --rel-target=NoSuchType .`: 候補一覧つきエラーで exit 1 になることを確認
 - 気づき: `render.Renderer`（interface, 同一パッケージ内で `Options` を裸で参照）と `mermaid.Renderer`（`render.Options` と修飾して参照）は正規化により正しく実装関係として検出された。これは「パッケージ修飾を無視する」という 5A の決定が実プロジェクトで狙い通り機能した具体例
 
@@ -101,5 +101,5 @@ product/
 - 対象: `~/shimabox/github/Mizu-go`（11 packages, 38 structs, 6 interfaces の実プロジェクト）
 - `--summary`: パッケージ跨ぎの実装検出が実データで機能（`core.Particle ← implements: particle.atom, particle.h2o`、`core.Random ← implements: mathRandom, seededRandom`）。一覧は読みやすい
 - `--rel-target=Particle --rel-target-depth=1`: Particle interface 周辺（Factory 等）だけの小さな図が切り出せた
-- 多値戻り値メソッド（`+Layout(int, int) int, int`）は fixture 未収録パターンだったが、実 mermaid パーサ（mermaid.parse）でクラス図・パッケージ図・rel-target 出力すべて構文 OK を確認済み
+- 多値戻り値メソッド（`+Layout(int, int) int, int`）は fixture 未収録パターンだったが、実 mermaid パーサ（mermaid.parse）で型と依存関係の図・パッケージ図・rel-target 出力すべて構文 OK を確認済み
 - 気づき（将来課題候補）: 多値戻り値の fixture ケースを edge-cases に足しておくと golden で保護できる

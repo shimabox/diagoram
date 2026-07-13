@@ -22,7 +22,7 @@
 
 ### 7-2. README（例中心・日英どちらでもよいがまず日本語 + 英語サマリ）
 - [x] 構成: バッジ / 1 行説明 / Why / Install（go install・docker・binary）/ Quick Start（入力コード → 出力図の実例。Mermaid は README 内で実際にレンダリングされる形で貼る）/ 全オプション表 / PlantUML 画像化手順 / License
-- [x] **ドッグフーディング**: diagoram 自身のクラス図・パッケージ図を README に掲載（php-class-diagram の伝統を踏襲）
+- [x] **ドッグフーディング**: diagoram 自身の型と依存関係の図・パッケージ図を README に掲載（php-class-diagram の伝統を踏襲）
 - [x] 図の更新スクリプト `update-dogfood.sh`（自分自身に diagoram をかけて README 用の図を再生成）
 
 ### 7-3. リリース整備
@@ -51,7 +51,7 @@
 ## 実装時の決定事項・最終品質チェック結果（Phase 7 完了時に記録）
 - Docker: scratch ベースで **2.69MB**（目標 10MB を大きくクリア）。CA 証明書やシェルは不要（ネットワークアクセスなし）。オーケストレーターが独立に再ビルド・動作確認済み（-v でのバージョン埋め込み、-v マウントでの解析）
 - compose.yaml は作らない判断（単一コンテナ CLI は docker run 一発で足りる）
-- README: 掲載図はすべて実出力（実装担当が diff で検証）。ドッグフードのクラス図は全体ではなく internal/gocode に限定（可読性優先）。DOGFOOD マーカー間を update-dogfood.sh が差し替える
+- README: 掲載図はすべて実出力（実装担当が diff で検証）。ドッグフードの型と依存関係の図は全体ではなく internal/gocode に限定（可読性優先）。DOGFOOD マーカー間を update-dogfood.sh が差し替える
 - release.yml: goreleaser 不使用。素の go build マトリクス + gh release create + buildx で GHCR push。test ジョブが build/docker をゲート。sha256 チェックサム添付
 - 最終品質チェック（7-4）: fsnotify v1.9.0（著名 OSS）で class/summary を実行し、実 mermaid パーサで構文 OK を確認。ヘルプは全オプションに「何に効くか・何と併用不可か」を明記済み
 - **既知の限界（将来課題）**: ビルドタグで分かれたプラットフォーム別ファイル（fsnotify の backend_*.go 等）は同名型が複数回リストされる（summary で `watch` が 3 回等）。Mermaid 出力は valid だが、GOOS 別のファイルフィルタや同名型のマージは未対応
