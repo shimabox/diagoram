@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
-# Regenerates the "dogfooding" diagrams embedded in README.md by running
-# diagoram against its own source tree, and splices the fresh output
-# between the README's DOGFOOD marker comments.
+# diagoramで自身のソースコードを解析し、README.mdに埋め込む
+# dogfood図を再生成します。生成結果はREADMEのDOGFOODマーカー間へ
+# 書き込みます。
 #
-# - Class diagram: internal/gocode, diagoram's own language model. It
-#   is used (rather than the whole repo) so the dogfooded diagram stays
-#   readable inline in the README instead of a ~40-class wall of text.
-# - Package diagram: the whole repo, which is small enough to read as
-#   one picture and shows diagoram's actual package layout.
+# - クラス図はdiagoramの言語モデルを定義するinternal/gocodeを対象にします。
+#   リポジトリ全体ではなく対象を絞ることで、図を読みやすく保ちます。
+# - パッケージ依存図は、ローカル作業用のtmpを除いたリポジトリ全体を
+#   対象にし、diagoram本体のパッケージ構成だけを表示します。
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
@@ -17,12 +16,12 @@ package_out=$(mktemp)
 trap 'rm -f "$class_out" "$package_out"' EXIT
 
 go run ./cmd/diagoram internal/gocode >"$class_out"
-go run ./cmd/diagoram --package-diagram . >"$package_out"
+go run ./cmd/diagoram --package-diagram --exclude-dir=tmp . >"$package_out"
 
 splice() {
   local start="$1" end="$2" content_file="$3"
   if ! grep -qF "$start" "$readme" || ! grep -qF "$end" "$readme"; then
-    echo "update-dogfood.sh: markers $start / $end not found in $readme" >&2
+    echo "update-dogfood.sh: $readme にマーカー $start / $end が見つかりません" >&2
     exit 1
   fi
   awk -v start="$start" -v end="$end" -v content_file="$content_file" '
@@ -44,4 +43,4 @@ splice() {
 splice "<!-- DOGFOOD:CLASS:START -->" "<!-- DOGFOOD:CLASS:END -->" "$class_out"
 splice "<!-- DOGFOOD:PACKAGE:START -->" "<!-- DOGFOOD:PACKAGE:END -->" "$package_out"
 
-echo "README.md dogfood diagrams updated."
+echo "README.md のdogfood図を更新しました。"

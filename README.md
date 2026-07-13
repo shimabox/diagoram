@@ -148,6 +148,212 @@ diagoram --package-diagram . > package-diagram.md
 
 構文エラーを含むファイルは警告して読み飛ばすため、作業途中のコードも解析できます。
 
+<details>
+<summary>diagoram自身の解析結果を見る</summary>
+
+クラス図は `internal/gocode` を対象にしています。
+
+<!-- DOGFOOD:CLASS:START -->
+```mermaid
+classDiagram
+    class BuildContext["BuildContext"] {
+        +GOOS string
+        +GOARCH string
+        +Tags string[]
+    }
+    class Constant["Constant"] {
+        +Name string
+        +Doc string
+        +Exported bool
+    }
+    class Field["Field"] {
+        +Name string
+        +Type TypeRef
+        +Exported bool
+    }
+    class Function["Function"] {
+        +Name string
+        +Doc string
+        +Params TypeRef[]
+        +Results TypeRef[]
+        +Exported bool
+    }
+    class GeneratedFileMode["GeneratedFileMode"] {
+        <<type>>
+        type int
+    }
+    class Import["Import"] {
+        +Alias string
+        +Path string
+    }
+    class Interface["Interface"] {
+        +Name string
+        +TypeParams TypeParam[]
+        +Doc string
+        +Methods Method[]
+        +Embeds TypeRef[]
+    }
+    class Method["Method"] {
+        +Name string
+        +Params TypeRef[]
+        +Results TypeRef[]
+        +Exported bool
+        +PointerReceiver bool
+    }
+    class NamedType["NamedType"] {
+        +Name string
+        +Doc string
+        +TypeParams TypeParam[]
+        +Kind NamedTypeKind
+        +Underlying TypeRef
+        +Params TypeRef[]
+        +Results TypeRef[]
+        +Methods Method[]
+        +Constants Constant[]
+    }
+    class NamedTypeKind["NamedTypeKind"] {
+        <<type>>
+        type int
+    }
+    class Package["Package"] {
+        +Dir string
+        +Name string
+        +Imports Import[]
+        +Structs *Struct[]
+        +Interfaces *Interface[]
+        +NamedTypes *NamedType[]
+        +Functions Function[]
+    }
+    class ParseOptions["ParseOptions"] {
+        +Includes string[]
+        +Excludes string[]
+        +ExcludeDirs string[]
+        +IncludeDirs string[]
+        +GeneratedFiles GeneratedFileMode
+        +BuildContext *BuildContext
+    }
+    class Struct["Struct"] {
+        +Name string
+        +TypeParams TypeParam[]
+        +Doc string
+        +Fields Field[]
+        +Embeds TypeRef[]
+        +Methods Method[]
+    }
+    class TypeParam["TypeParam"] {
+        +Name string
+        +Constraint TypeRef
+    }
+    class TypeRef["TypeRef"] {
+        +PkgName string
+        +Name string
+        +IsSlice bool
+        +IsMap bool
+        +IsPtr bool
+        +String string
+        +Related TypeRef[]
+        +Relation TypeRelation
+    }
+    class TypeRelation["TypeRelation"] {
+        <<type>>
+        type int
+    }
+    class Warning["Warning"] {
+        +File string
+        +Err error
+        +BuildExpression string
+        +Error() string
+    }
+    class dirFiles["dirFiles"] {
+        +Dir string
+        +AbsDir string
+        +Files string[]
+    }
+    class fileDecls["fileDecls"] {
+        +Structs *Struct[]
+        +Interfaces *Interface[]
+        +NamedTypes *NamedType[]
+        +Methods Map~string,Method[]~
+        +Constants Map~string,Constant[]~
+        +PendingConstants pendingConstant[]
+        +Functions Function[]
+    }
+    class pendingConstant["pendingConstant"] {
+        +Constant Constant
+        +RefName string
+    }
+    Field ..> TypeRef
+    Function ..> TypeRef : *
+    Interface ..> Method : *
+    Interface ..> TypeParam : *
+    Interface ..> TypeRef : *
+    Method ..> TypeRef : *
+    NamedType ..> Constant : *
+    NamedType ..> Method : *
+    NamedType ..> NamedTypeKind
+    NamedType ..> TypeParam : *
+    NamedType ..> TypeRef : *
+    Package ..> Function : *
+    Package ..> Import : *
+    Package ..> Interface : *
+    Package ..> NamedType : *
+    Package ..> Struct : *
+    ParseOptions ..> BuildContext
+    ParseOptions ..> GeneratedFileMode
+    Struct ..> Field : *
+    Struct ..> Method : *
+    Struct ..> TypeParam : *
+    Struct ..> TypeRef : *
+    TypeParam ..> TypeRef
+    TypeRef ..> TypeRelation
+    fileDecls ..> Constant : *
+    fileDecls ..> Function : *
+    fileDecls ..> Interface : *
+    fileDecls ..> Method : *
+    fileDecls ..> NamedType : *
+    fileDecls ..> Struct : *
+    fileDecls ..> pendingConstant : *
+    pendingConstant ..> Constant
+```
+<!-- DOGFOOD:CLASS:END -->
+
+パッケージ依存図はリポジトリ全体を対象にしています。
+
+<!-- DOGFOOD:PACKAGE:START -->
+```mermaid
+flowchart TD
+    subgraph cmd["cmd"]
+        cmd_diagoram["diagoram"]
+    end
+    subgraph internal["internal"]
+        internal_cli["cli"]
+        internal_diagram["diagram"]
+        internal_gocode["gocode"]
+        subgraph internal_render["render"]
+            internal_render_mermaid["mermaid"]
+            internal_render_plantuml["plantuml"]
+        end
+        internal_testutil["testutil"]
+    end
+    cmd_diagoram --> internal_cli
+    internal_cli --> internal_diagram
+    internal_cli --> internal_gocode
+    internal_cli --> internal_render
+    internal_cli --> internal_render_mermaid
+    internal_cli --> internal_render_plantuml
+    internal_diagram --> internal_gocode
+    internal_render --> internal_diagram
+    internal_render_mermaid --> internal_diagram
+    internal_render_mermaid --> internal_gocode
+    internal_render_mermaid --> internal_render
+    internal_render_plantuml --> internal_diagram
+    internal_render_plantuml --> internal_gocode
+    internal_render_plantuml --> internal_render
+```
+<!-- DOGFOOD:PACKAGE:END -->
+
+</details>
+
 ## 詳細
 
 - [出力形式と読み方](docs/outputs.md)
