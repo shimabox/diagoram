@@ -140,6 +140,8 @@ func writeStaticAssets(outDir string) error {
 		"assets/portal.js",
 		"assets/vendor/mermaid.min.js",
 		"assets/vendor/marked.min.js",
+		"assets/vendor/MERMAID-LICENSE",
+		"assets/vendor/MARKED-LICENSE",
 	}
 	for _, name := range files {
 		data, err := staticFS.ReadFile(name)
