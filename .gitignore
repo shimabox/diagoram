@@ -2,6 +2,7 @@
 /dist/
 /diagoram
 /diagoram.exe
+/_site/
 
 # Go
 *.test
