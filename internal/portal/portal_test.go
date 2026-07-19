@@ -56,6 +56,8 @@ var wantFiles = []string{
 	"assets/portal.js",
 	"assets/vendor/mermaid.min.js",
 	"assets/vendor/marked.min.js",
+	"assets/vendor/MERMAID-LICENSE",
+	"assets/vendor/MARKED-LICENSE",
 	"type-diagram.mmd",
 	"type-diagram.html",
 	"package-diagram.mmd",

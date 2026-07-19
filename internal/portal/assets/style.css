@@ -249,6 +249,19 @@ pre.mermaid {
   color: var(--accent);
 }
 
+footer {
+  max-width: 68rem;
+  margin: 2rem auto 0;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+footer a {
+  color: var(--accent);
+}
+
 .report table {
   border-collapse: collapse;
 }
