@@ -10,6 +10,8 @@ Goコードの構造を、読み始める前に把握するためのCLIです。
 
 ソースコードを静的解析し、型と依存関係を図やMarkdownレポートにします。対象プロジェクトのビルドや設定は必要ありません。
 
+diagoram自身を解析した [HTMLポータルのデモ](https://shimabox.github.io/diagoram/) を公開しています。
+
 [smeghead/php-class-diagram](https://github.com/smeghead/php-class-diagram) の、ソースコードから図を継続して生成し、設計を見直すという考え方を参考にしています。
 
 ## 特徴
