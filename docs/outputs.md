@@ -93,11 +93,11 @@ diagoram --html=_site .
 
 ```text
 _site/
-├── index.html                              # 6枚のカード（Class/Package × Mermaid・PlantUML、Report、Summary）
+├── index.html                              # 6枚のカード（型と依存関係・パッケージ依存図 × Mermaid・PlantUML、Report、Summary）
 ├── assets/                                  # 同梱のmermaid.min.js / marked.min.js / style.css
-├── class-diagram.mmd / class-diagram.html          # 型と依存関係（Mermaidソース / ブラウザ描画）
+├── type-diagram.mmd / type-diagram.html            # 型と依存関係（Mermaidソース / ブラウザ描画）
 ├── package-diagram.mmd / package-diagram.html      # パッケージ依存図（Mermaidソース / ブラウザ描画）
-├── class-diagram.puml / class-diagram-puml.html    # 型と依存関係（PlantUMLソース / ソース表示ページ）
+├── type-diagram.puml / type-diagram-puml.html      # 型と依存関係（PlantUMLソース / ソース表示ページ）
 ├── package-diagram.puml / package-diagram-puml.html
 ├── report.md / report.html                  # 解析レポート（Markdownソース / ブラウザ描画）
 └── summary.txt / summary.html               # 構造要約（テキスト / ブラウザ表示）
