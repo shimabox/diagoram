@@ -366,6 +366,7 @@ flowchart TD
         internal_cli["cli"]
         internal_diagram["diagram"]
         internal_gocode["gocode"]
+        internal_portal["portal"]
         subgraph internal_render["render"]
             internal_render_mermaid["mermaid"]
             internal_render_plantuml["plantuml"]
@@ -375,6 +376,7 @@ flowchart TD
     cmd_diagoram --> internal_cli
     internal_cli --> internal_diagram
     internal_cli --> internal_gocode
+    internal_cli --> internal_portal
     internal_cli --> internal_render
     internal_cli --> internal_render_mermaid
     internal_cli --> internal_render_plantuml
