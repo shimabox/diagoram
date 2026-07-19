@@ -352,7 +352,10 @@ func renderEdges(d *diagram.Diagram, opt render.Options) []string {
 			labels = append(labels, diagram.EdgeReasonLabels(d.ReasonsFor(e))...)
 		}
 		if len(labels) > 0 {
-			line += " : " + strings.Join(labels, "; ")
+			// Match Mermaid's separator (a semicolon breaks Mermaid's
+			// classDiagram lexer) so both renderers format multi-reason
+			// edge labels the same way.
+			line += " : " + strings.Join(labels, ", ")
 		}
 		lines = append(lines, indentUnit+line)
 	}

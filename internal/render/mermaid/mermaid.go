@@ -296,7 +296,12 @@ func renderEdges(d *diagram.Diagram, opt render.Options) []string {
 			labels = append(labels, diagram.EdgeReasonLabels(d.ReasonsFor(e))...)
 		}
 		if len(labels) > 0 {
-			line += " : " + strings.Join(labels, "; ")
+			// Mermaid classDiagram labels are lexed up to the end of
+			// the line; a semicolon inside one (e.g. "field; map-key")
+			// triggers "Lexical error ... Unrecognized text" in
+			// Mermaid's parser, so join with a comma instead, which
+			// Mermaid accepts unescaped in edge labels.
+			line += " : " + strings.Join(labels, ", ")
 		}
 		lines = append(lines, line)
 	}
