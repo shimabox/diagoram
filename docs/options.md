@@ -12,10 +12,11 @@ diagoram [options] <dir>
 | `--package-diagram` | パッケージ依存図を出力 |
 | `--summary` | 型と依存関係をテキストで要約 |
 | `--report` | 構造要約、Mermaid図、解析条件、警告をMarkdownで出力 |
+| `--html=<dir>` | 型・パッケージ依存図、レポート、要約を`<dir>`へ一括生成し、`index.html`から閲覧できるHTMLポータルを作る（[出力形式と読み方](outputs.md#htmlポータル)参照） |
 | `--format=mermaid\|plantuml` | 図の形式を指定。デフォルトは `mermaid` |
 | `--show-external` | パッケージ依存図に外部パッケージを含める |
 
-`--report` は `--summary`、`--package-diagram` と併用できません。`--class-diagram` と `--package-diagram` も併用できません。
+`--report` は `--summary`、`--package-diagram` と併用できません。`--class-diagram` と `--package-diagram` も併用できません。`--html` は `--class-diagram`、`--package-diagram`、`--summary`、`--report` のいずれとも併用できません(すでにポータルへ含まれるため)。`--format` は `--html` と併用した場合も無視されます(harmless)。
 
 ## 表示内容
 

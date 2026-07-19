@@ -83,6 +83,40 @@ docker run --rm -v "$PWD:/work" plantuml/plantuml -tsvg /work/diagram.puml
 
 `--report` は常にMermaid図を含むため、`--format` の指定は反映されません。
 
+## HTMLポータル
+
+`--html=<dir>` は、上記の出力すべてを一度に生成し `index.html` から横断的に閲覧できる「ポータル」を`<dir>`以下に書き出します。
+
+```sh
+diagoram --html=_site .
+```
+
+```text
+_site/
+├── index.html                              # 6枚のカード（Class/Package × Mermaid・PlantUML、Report、Summary）
+├── assets/                                  # 同梱のmermaid.min.js / marked.min.js / style.css
+├── class-diagram.mmd / class-diagram.html          # 型と依存関係（Mermaidソース / ブラウザ描画）
+├── package-diagram.mmd / package-diagram.html      # パッケージ依存図（Mermaidソース / ブラウザ描画）
+├── class-diagram.puml / class-diagram-puml.html    # 型と依存関係（PlantUMLソース / ソース表示ページ）
+├── package-diagram.puml / package-diagram-puml.html
+├── report.md / report.html                  # 解析レポート（Markdownソース / ブラウザ描画）
+└── summary.txt / summary.html               # 構造要約（テキスト / ブラウザ表示）
+```
+
+`<dir>` をブラウザで直接開くだけで完結します（`file://` オフライン動作）。
+
+- 図の描画はMermaidに一本化しています。PlantUMLは `.puml` ソースのみ同梱し、`*-puml.html` からソースを確認・コピーできます。SVGなど画像化したい場合は上の「PlantUML」節のDocker手順を使ってください
+- `mermaid.min.js` / `marked.min.js` は同梱（`go:embed`）済みで、外部CDNへは一切アクセスしません。生成されるHTMLに外部URLへの参照が含まれないことはユニットテストで担保しています
+- 図が非常に大きい場合（エッジ数がMermaidの既定上限を超える場合など）は自動的にブラウザ描画をスキップし、ソース表示にフォールバックします。表示されたメッセージに従い `--exclude-dir` / `--include-dir` / `--rel-target` で対象を絞って再生成してください
+- 出力先ディレクトリは上書きのみで、無関係な既存ファイルを削除することはありません
+- `--include` / `--exclude-dir` などの絞り込み系フラグは通常の出力と同様に有効です。一方 `--class-diagram` / `--package-diagram` / `--summary` / `--report` はポータルに含まれる内容と重複するため併用できません
+
+ドッグフーディング用のコマンド例（`tmp/` を除外してdiagoram自身を解析する）:
+
+```sh
+go run ./cmd/diagoram --html=_site --exclude-dir=tmp .
+```
+
 ## 解析時の警告
 
 構文エラーなどで解析できないファイルは標準エラー出力へ警告し、残りのファイルの解析を続けます。解析レポートでは同じ警告をDiagnosticsにも収録します。

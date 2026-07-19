@@ -1,0 +1,260 @@
+/* diagoram HTML portal stylesheet. No external fonts or CDN
+   references: everything here is either a system font stack or a
+   plain CSS value, so the portal renders identically offline. */
+
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --fg: #1a1a1a;
+  --muted: #5a5a5a;
+  --border: #d8d8d8;
+  --card-bg: #f7f7f8;
+  --accent: #2b5fb0;
+  --notice-bg: #fff4e0;
+  --notice-border: #e0a930;
+  --code-bg: #f2f2f3;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16171a;
+    --fg: #e8e8e8;
+    --muted: #a0a0a0;
+    --border: #3a3b3f;
+    --card-bg: #1f2023;
+    --accent: #7aa2e3;
+    --notice-bg: #3a2f16;
+    --notice-border: #b98a2e;
+    --code-bg: #202124;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0 1.5rem 3rem;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+}
+
+header {
+  padding: 1.5rem 0 1rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.5rem;
+}
+
+header a {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+header a:hover {
+  text-decoration: underline;
+}
+
+header h1 {
+  margin: 0.4rem 0 0;
+  font-size: 1.5rem;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin: 0.8rem 0 0;
+}
+
+.meta div {
+  min-width: 10rem;
+}
+
+.meta dt {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.meta dd {
+  margin: 0.1rem 0 0;
+  font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+  word-break: break-all;
+}
+
+main {
+  max-width: 68rem;
+  margin: 0 auto;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 1rem;
+}
+
+.card {
+  display: block;
+  padding: 1rem 1.2rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--card-bg);
+  color: inherit;
+  text-decoration: none;
+}
+
+.card:hover {
+  border-color: var(--accent);
+}
+
+.card h2 {
+  margin: 0 0 0.3rem;
+  font-size: 1.05rem;
+  color: var(--accent);
+}
+
+.card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.notice {
+  padding: 0.75rem 1rem;
+  background: var(--notice-bg);
+  border: 1px solid var(--notice-border);
+  border-radius: 0.4rem;
+  font-size: 0.9rem;
+}
+
+pre.source,
+pre.mermaid-source {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  padding: 1rem 3.5rem 1rem 1rem;
+  overflow-x: auto;
+  white-space: pre;
+  font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+  font-size: 0.85rem;
+}
+
+pre.mermaid {
+  overflow-x: auto;
+}
+
+.report pre code {
+  display: block;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  padding: 1rem 3.5rem 1rem 1rem;
+  overflow-x: auto;
+  font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+  font-size: 0.85rem;
+}
+
+/* .copy-wrap wraps a source pre/code block so its "Copy" button can be
+   positioned in the top-right corner without affecting the pre's own
+   layout or becoming part of its copyable text content. */
+.copy-wrap {
+  position: relative;
+}
+
+.copy-btn {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.3rem;
+  background: var(--card-bg);
+  color: var(--fg);
+  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.copy-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.copy-btn.copied {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* .zoom-wrap wraps a successfully-rendered pre.mermaid (which now
+   holds an <svg>, not source text) so it can be zoomed and panned.
+   The <svg> itself carries the scale/translate transform; zoom-wrap
+   only clips it and anchors the overlaid controls. */
+.zoom-wrap {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  max-height: 80vh;
+}
+
+.zoom-wrap pre.mermaid {
+  margin: 0;
+  padding: 0.5rem;
+  overflow: visible;
+  cursor: grab;
+}
+
+.zoom-wrap.dragging pre.mermaid {
+  cursor: grabbing;
+}
+
+.zoom-wrap.dragging {
+  user-select: none;
+}
+
+.zoom-wrap svg {
+  display: block;
+}
+
+.zoom-controls {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  display: flex;
+  gap: 0.3rem;
+}
+
+.zoom-btn {
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.3rem;
+  background: var(--card-bg);
+  color: var(--fg);
+  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.zoom-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.report table {
+  border-collapse: collapse;
+}
+
+.report th,
+.report td {
+  border: 1px solid var(--border);
+  padding: 0.3rem 0.6rem;
+}

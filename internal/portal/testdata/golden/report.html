@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Report - diagoram portal</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="report">
+<header><a href="index.html">&larr; Portal</a><h1>Report</h1></header>
+<main>
+  <pre id="report-markdown" hidden># Go source analysis report
+
+## Types and relationships
+
+```mermaid
+classDiagram
+    class Widget[&#34;Widget&#34;]
+```
+</pre>
+  <p class="notice mermaid-fallback-notice" hidden>Some embedded diagrams could not be rendered in the browser. Their source is shown instead.</p>
+  <div id="report-content" class="report"></div>
+  <p><a href="report.md">Download source (report.md)</a></p>
+</main>
+<script src="assets/vendor/marked.min.js"></script>
+<script src="assets/vendor/mermaid.min.js"></script>
+<script src="assets/portal.js"></script>
+</body>
+</html>

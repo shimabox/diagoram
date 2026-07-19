@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>{{.Title}} - diagoram portal</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header><a href="index.html">&larr; Portal</a><h1>{{.Title}}</h1></header>
+<main>
+  <pre class="source">{{.Content}}</pre>
+  <p><a href="{{.SourceFile}}">Download source ({{.SourceFile}})</a></p>
+</main>
+<script src="assets/portal.js"></script>
+</body>
+</html>

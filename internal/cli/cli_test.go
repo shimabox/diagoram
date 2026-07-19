@@ -231,6 +231,30 @@ func TestRun(t *testing.T) {
 			wantCode:      1,
 			wantStderrHas: "cannot be combined",
 		},
+		{
+			name:          "--html and --class-diagram are mutually exclusive",
+			args:          []string{"--html=/tmp/does-not-matter", "--class-diagram", fixturesDir + "/basic"},
+			wantCode:      1,
+			wantStderrHas: "--html and --class-diagram cannot be used together",
+		},
+		{
+			name:          "--html and --package-diagram are mutually exclusive",
+			args:          []string{"--html=/tmp/does-not-matter", "--package-diagram", fixturesDir + "/basic"},
+			wantCode:      1,
+			wantStderrHas: "--html and --package-diagram cannot be used together",
+		},
+		{
+			name:          "--html and --summary are mutually exclusive",
+			args:          []string{"--html=/tmp/does-not-matter", "--summary", fixturesDir + "/basic"},
+			wantCode:      1,
+			wantStderrHas: "--html and --summary cannot be used together",
+		},
+		{
+			name:          "--html and --report are mutually exclusive",
+			args:          []string{"--html=/tmp/does-not-matter", "--report", fixturesDir + "/basic"},
+			wantCode:      1,
+			wantStderrHas: "--html and --report cannot be used together",
+		},
 	}
 
 	for _, tt := range tests {
@@ -415,6 +439,51 @@ func TestRunE2E_ClassAndPackageDiagramMutuallyExclusive(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "--class-diagram") || !strings.Contains(stderr.String(), "--package-diagram") {
 		t.Errorf("stderr = %q, want it to mention both --class-diagram and --package-diagram", stderr.String())
+	}
+}
+
+// TestRunE2E_HTML checks that --html writes a portal whose
+// class-diagram.mmd/.puml and summary.txt are byte-identical to the
+// "basic" fixture's existing golden files for --format=mermaid,
+// --format=plantuml, and --summary: runPortal's filter/render pipeline
+// must produce exactly the same diagram/summary text those other
+// output modes do, not a divergent one.
+func TestRunE2E_HTML(t *testing.T) {
+	dir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+
+	code := Run([]string{"--html", dir, fixturesDir + "/basic"}, &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("Run exit code = %d, want 0 (stderr=%q)", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Portal written to") {
+		t.Errorf("stdout = %q, want it to report where the portal was written", stdout.String())
+	}
+
+	cases := []struct {
+		generated, golden string
+	}{
+		{"class-diagram.mmd", "expected-class.mmd"},
+		{"class-diagram.puml", "expected-class.puml"},
+		{"summary.txt", "expected-summary.txt"},
+	}
+	for _, c := range cases {
+		got, err := os.ReadFile(filepath.Join(dir, c.generated))
+		if err != nil {
+			t.Fatalf("cannot read generated %s: %v", c.generated, err)
+		}
+		want, err := os.ReadFile(fixturesDir + "/basic/" + c.golden)
+		if err != nil {
+			t.Fatalf("cannot read golden %s: %v", c.golden, err)
+		}
+		if string(got) != string(want) {
+			t.Errorf("%s does not match %s\n--- want ---\n%s\n--- got ---\n%s", c.generated, c.golden, want, got)
+		}
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, "index.html")); err != nil {
+		t.Errorf("index.html was not written: %v", err)
 	}
 }
 

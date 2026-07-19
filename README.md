@@ -148,6 +148,26 @@ diagoram --package-diagram . > package-diagram.md
 
 構文エラーを含むファイルは警告して読み飛ばすため、作業途中のコードも解析できます。
 
+## HTMLポータルでまとめて見る
+
+`--html=<dir>` を指定すると、型と依存関係の図・パッケージ依存図・解析レポート・構造要約を一括生成し、`index.html` から横断的に閲覧できます。図はMermaidでブラウザ上に描画され（PlantUMLソースも同梱）、外部CDNへの参照は一切ないため、`<dir>`をブラウザで直接開くだけで完結します。
+
+```sh
+diagoram --html=_site .
+```
+
+```sh
+open _site/index.html   # macOS。他OSではブラウザで直接開いてください
+```
+
+ドッグフーディング（diagoram自身をdiagoramで解析してポータルを作る）例:
+
+```sh
+go run ./cmd/diagoram --html=_site --exclude-dir=tmp .
+```
+
+`--html` は `--class-diagram` / `--package-diagram` / `--summary` / `--report` と併用できません（いずれもポータルに含まれるため）。詳細は[オプション一覧](docs/options.md)を参照してください。
+
 <details>
 <summary>diagoram自身の解析結果を見る</summary>
 

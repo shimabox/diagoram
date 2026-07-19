@@ -86,6 +86,13 @@ Options:
                       With --rel-target, how many hops of
                       dependency/embedding/implementation edges to
                       follow from the target types (default 1).
+  --html=<dir>        Write an HTML portal to <dir> instead of printing to
+                      stdout: class and package diagrams (Mermaid, rendered
+                      offline in the browser, with PlantUML sources included),
+                      a Markdown report, a structural summary, and an
+                      index.html linking them. Cannot be combined with
+                      --class-diagram, --package-diagram, --summary, or
+                      --report. --format is ignored (harmless).
   --summary           Print a plain-text summary of the analyzed types
                       instead of a diagram. Cannot be combined with
                       --package-diagram.
@@ -178,6 +185,12 @@ type Options struct {
 	// people or generative AI. It cannot be combined with Summary or
 	// PackageDiagram.
 	Report bool
+	// HTMLDir requests an HTML portal be written to this directory
+	// instead of printing to stdout (--html): class/package diagrams,
+	// PlantUML sources, a report, a summary, and an index.html linking
+	// them, all at once. It cannot be combined with ClassDiagram,
+	// PackageDiagram, Summary, or Report; --format is ignored (harmless).
+	HTMLDir string
 	// RelTargets is the list of --rel-target names (already split on
 	// commas across every occurrence of the flag) that scope a class
 	// diagram/summary to the types reachable from them. Empty means no
@@ -267,6 +280,7 @@ func parseArgs(args []string, stderr io.Writer) (*Options, error) {
 	fs.BoolVar(&opts.ShowEdgeReasons, "show-edge-reasons", false, "annotate relationships with their source constructs")
 	fs.BoolVar(&opts.Summary, "summary", false, "print a plain-text summary of the analyzed types instead of a diagram")
 	fs.BoolVar(&opts.Report, "report", false, "print a Markdown analysis report")
+	fs.StringVar(&opts.HTMLDir, "html", "", "write an HTML portal to this directory instead of printing to stdout")
 	fs.IntVar(&opts.RelTargetDepth, "rel-target-depth", 1, "with --rel-target, how many hops of edges to follow from the target types")
 	fs.Func("rel-target", "only include types reachable from these names (comma-separated; type name or pkg.Type; repeatable)", func(v string) error {
 		for _, part := range strings.Split(v, ",") {
@@ -391,6 +405,22 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "Error: --report and --package-diagram cannot be used together. --report describes types and their relationships.\n\n%s", usage)
 		return 1
 	}
+	if opts.HTMLDir != "" && opts.ClassDiagram {
+		fmt.Fprintf(stderr, "Error: --html and --class-diagram cannot be used together. --html already generates a class diagram page.\n\n%s", usage)
+		return 1
+	}
+	if opts.HTMLDir != "" && opts.PackageDiagram {
+		fmt.Fprintf(stderr, "Error: --html and --package-diagram cannot be used together. --html already generates a package diagram page.\n\n%s", usage)
+		return 1
+	}
+	if opts.HTMLDir != "" && opts.Summary {
+		fmt.Fprintf(stderr, "Error: --html and --summary cannot be used together. --html already generates a summary page.\n\n%s", usage)
+		return 1
+	}
+	if opts.HTMLDir != "" && opts.Report {
+		fmt.Fprintf(stderr, "Error: --html and --report cannot be used together. --html already generates a report page.\n\n%s", usage)
+		return 1
+	}
 	if opts.MaxMembers < 0 {
 		fmt.Fprintf(stderr, "Error: --max-members must be zero or greater.\n\n%s", usage)
 		return 1
@@ -469,6 +499,10 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	if modErr != nil {
 		fmt.Fprintf(stderr, "Error: cannot read go.mod in %q: %v\n", opts.Dir, modErr)
 		return 1
+	}
+
+	if opts.HTMLDir != "" {
+		return runPortal(opts, pkgs, warnings, modulePath, parseOptions, stdout, stderr)
 	}
 
 	var out string

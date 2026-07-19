@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>{{.Title}} - diagoram portal</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="mermaid">
+<header><a href="index.html">&larr; Portal</a><h1>{{.Title}}</h1></header>
+<main>
+{{if .Skipped}}
+  <p class="notice">{{.SkipReason}}</p>
+  <pre class="source">{{.Source}}</pre>
+  <script src="assets/portal.js"></script>
+{{else}}
+  <p class="notice mermaid-fallback-notice" hidden>This diagram could not be rendered in the browser. Showing its source instead.</p>
+  <pre class="mermaid">{{.Source}}</pre>
+  <script src="assets/vendor/mermaid.min.js"></script>
+  <script src="assets/portal.js"></script>
+{{end}}
+  <p><a href="{{.SourceFile}}">Download source ({{.SourceFile}})</a></p>
+</main>
+</body>
+</html>
