@@ -443,7 +443,7 @@ func TestRunE2E_ClassAndPackageDiagramMutuallyExclusive(t *testing.T) {
 }
 
 // TestRunE2E_HTML checks that --html writes a portal whose
-// class-diagram.mmd/.puml and summary.txt are byte-identical to the
+// type-diagram.mmd/.puml and summary.txt are byte-identical to the
 // "basic" fixture's existing golden files for --format=mermaid,
 // --format=plantuml, and --summary: runPortal's filter/render pipeline
 // must produce exactly the same diagram/summary text those other
@@ -464,8 +464,8 @@ func TestRunE2E_HTML(t *testing.T) {
 	cases := []struct {
 		generated, golden string
 	}{
-		{"class-diagram.mmd", "expected-class.mmd"},
-		{"class-diagram.puml", "expected-class.puml"},
+		{"type-diagram.mmd", "expected-class.mmd"},
+		{"type-diagram.puml", "expected-class.puml"},
 		{"summary.txt", "expected-summary.txt"},
 	}
 	for _, c := range cases {

@@ -56,12 +56,12 @@ var wantFiles = []string{
 	"assets/portal.js",
 	"assets/vendor/mermaid.min.js",
 	"assets/vendor/marked.min.js",
-	"class-diagram.mmd",
-	"class-diagram.html",
+	"type-diagram.mmd",
+	"type-diagram.html",
 	"package-diagram.mmd",
 	"package-diagram.html",
-	"class-diagram.puml",
-	"class-diagram-puml.html",
+	"type-diagram.puml",
+	"type-diagram-puml.html",
 	"package-diagram.puml",
 	"package-diagram-puml.html",
 	"report.md",
@@ -106,9 +106,9 @@ func TestGenerate_SourceFilesAreVerbatim(t *testing.T) {
 		name    string
 		content string
 	}{
-		{"class-diagram.mmd", a.ClassMermaid},
+		{"type-diagram.mmd", a.ClassMermaid},
 		{"package-diagram.mmd", a.PackageMermaid},
-		{"class-diagram.puml", a.ClassPlantUML},
+		{"type-diagram.puml", a.ClassPlantUML},
 		{"package-diagram.puml", a.PackagePlantUML},
 		{"report.md", a.ReportMarkdown},
 		{"summary.txt", a.Summary},
@@ -137,9 +137,9 @@ func TestGenerate_IndexLinksToEveryPage(t *testing.T) {
 	}
 
 	linked := []string{
-		"class-diagram.html",
+		"type-diagram.html",
 		"package-diagram.html",
-		"class-diagram-puml.html",
+		"type-diagram-puml.html",
 		"package-diagram-puml.html",
 		"report.html",
 		"summary.html",
@@ -159,9 +159,9 @@ func TestGenerate_Golden(t *testing.T) {
 
 	pages := []string{
 		"index.html",
-		"class-diagram.html",
+		"type-diagram.html",
 		"package-diagram.html",
-		"class-diagram-puml.html",
+		"type-diagram-puml.html",
 		"package-diagram-puml.html",
 		"report.html",
 		"summary.html",
@@ -346,11 +346,11 @@ func TestGenerate_MermaidFallbackForLargeDiagram(t *testing.T) {
 		t.Errorf("package-diagram.html dropped the source it skipped rendering")
 	}
 
-	classPage, err := os.ReadFile(filepath.Join(outDir, "class-diagram.html"))
+	classPage, err := os.ReadFile(filepath.Join(outDir, "type-diagram.html"))
 	if err != nil {
-		t.Fatalf("cannot read class-diagram.html: %v", err)
+		t.Fatalf("cannot read type-diagram.html: %v", err)
 	}
 	if !strings.Contains(string(classPage), `class="mermaid"`) {
-		t.Errorf("class-diagram.html should still render live; the fallback must be per-diagram, not global")
+		t.Errorf("type-diagram.html should still render live; the fallback must be per-diagram, not global")
 	}
 }
