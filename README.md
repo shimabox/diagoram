@@ -4,11 +4,22 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/shimabox/diagoram.svg)](https://pkg.go.dev/github.com/shimabox/diagoram)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+diagoram is a CLI that statically analyzes Go source and generates Mermaid/PlantUML diagrams, Markdown analysis reports, and an offline HTML portal. No build step, no external dependencies. Documentation is in Japanese.
+
 Goコードの構造を、読み始める前に把握するためのCLIです。
 
 ソースコードを静的解析し、型と依存関係を図やMarkdownレポートにします。対象プロジェクトのビルドや設定は必要ありません。
 
 [smeghead/php-class-diagram](https://github.com/smeghead/php-class-diagram) の、ソースコードから図を継続して生成し、設計を見直すという考え方を参考にしています。
+
+## 特徴
+
+- go/parserでソースを直接解析するため、ビルドや依存パッケージの取得は不要です（構文エラーのあるファイルは警告して読み飛ばします）
+- go.modに外部依存はなく、同梱するJSもgo:embedでバイナリに含めています
+- `--report`はMarkdownの解析レポートを出力し、設計評価は渡した生成AIやレビュー担当者に委ねます
+- MermaidとPlantUMLの両方に対応しています
+- `--html`のHTMLポータルは外部CDNに依存せずオフラインで開けます
+- パッケージ依存図では、2パッケージ間の直接的な循環依存を赤い太線で示します
 
 ## 何に役立つか
 
@@ -20,6 +31,8 @@ Goコードの構造を、読み始める前に把握するためのCLIです。
 ## 一番有効な使い方
 
 初めて触るGoリポジトリの公開APIを解析し、生成AIと一緒に設計を確認する使い方です。
+
+diagoramはまだ開発初期のツールで、フラグ名や出力形式は今後変わることがあります。
 
 ### 1. インストールする
 

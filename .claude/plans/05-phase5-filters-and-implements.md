@@ -98,7 +98,7 @@ product/
 - 気づき: `render.Renderer`（interface, 同一パッケージ内で `Options` を裸で参照）と `mermaid.Renderer`（`render.Options` と修飾して参照）は正規化により正しく実装関係として検出された。これは「パッケージ修飾を無視する」という 5A の決定が実プロジェクトで狙い通り機能した具体例
 
 ### 外部プロジェクトでのドッグフーディング（オーケストレーター実施、2026-07-11）
-- 対象: `~/shimabox/github/Mizu-go`（11 packages, 38 structs, 6 interfaces の実プロジェクト）
+- 対象: [shimabox/Mizu-go](https://github.com/shimabox/Mizu-go)（11 packages, 38 structs, 6 interfaces の実プロジェクト）
 - `--summary`: パッケージ跨ぎの実装検出が実データで機能（`core.Particle ← implements: particle.atom, particle.h2o`、`core.Random ← implements: mathRandom, seededRandom`）。一覧は読みやすい
 - `--rel-target=Particle --rel-target-depth=1`: Particle interface 周辺（Factory 等）だけの小さな図が切り出せた
 - 多値戻り値メソッド（`+Layout(int, int) int, int`）は fixture 未収録パターンだったが、実 mermaid パーサ（mermaid.parse）で型と依存関係の図・パッケージ図・rel-target 出力すべて構文 OK を確認済み
