@@ -192,6 +192,63 @@ pre.mermaid {
   color: var(--accent);
 }
 
+/* .zoom-wrap wraps a successfully-rendered pre.mermaid (which now
+   holds an <svg>, not source text) so it can be zoomed and panned.
+   The <svg> itself carries the scale/translate transform; zoom-wrap
+   only clips it and anchors the overlaid controls. */
+.zoom-wrap {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  max-height: 80vh;
+}
+
+.zoom-wrap pre.mermaid {
+  margin: 0;
+  padding: 0.5rem;
+  overflow: visible;
+  cursor: grab;
+}
+
+.zoom-wrap.dragging pre.mermaid {
+  cursor: grabbing;
+}
+
+.zoom-wrap.dragging {
+  user-select: none;
+}
+
+.zoom-wrap svg {
+  display: block;
+}
+
+.zoom-controls {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  display: flex;
+  gap: 0.3rem;
+}
+
+.zoom-btn {
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.3rem;
+  background: var(--card-bg);
+  color: var(--fg);
+  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.zoom-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .report table {
   border-collapse: collapse;
 }

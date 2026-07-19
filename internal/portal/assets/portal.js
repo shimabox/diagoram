@@ -1,10 +1,11 @@
 // portal.js drives the small amount of client-side behavior the
 // diagoram HTML portal needs: rendering embedded Mermaid sources with
-// mermaid.min.js, rendering report.md with marked.min.js, and adding
-// "Copy" buttons to source <pre> blocks. It is loaded from an external
-// <script src> on every page that needs it so no page relies on
-// inline script, keeping a strict `script-src 'self'` Content-Security-
-// Policy workable.
+// mermaid.min.js, rendering report.md with marked.min.js, adding
+// "Copy" buttons to source <pre> blocks, and adding zoom/pan controls
+// to successfully-rendered Mermaid diagrams. It is loaded from an
+// external <script src> on every page that needs it so no page relies
+// on inline script, keeping a strict `script-src 'self'` Content-
+// Security-Policy workable.
 //
 // diagoram analyzes third-party Go source, so every string this file
 // touches (type names, doc comments, warning text) may be adversarial.
@@ -128,6 +129,178 @@
     });
   }
 
+  // Zoom/pan tuning: ZOOM_STEP is the per-click scale multiplier
+  // (also used per Ctrl/Cmd+wheel tick), and ZOOM_MIN/ZOOM_MAX bound
+  // how far a diagram can be shrunk or enlarged.
+  var ZOOM_STEP = 1.25;
+  var ZOOM_MIN = 0.2;
+  var ZOOM_MAX = 10;
+
+  function clampZoom(scale) {
+    return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, scale));
+  }
+
+  // initZoomPan wraps a successfully-rendered `pre.mermaid` (one that
+  // now contains an <svg>, not a fallback source block) in a
+  // `.zoom-wrap` container with +/-/Reset buttons overlaid, and wires
+  // up wheel-zoom (only while Ctrl/Cmd is held, so a plain wheel keeps
+  // scrolling the page), drag-to-pan, and button clicks. Zoom/pan
+  // state is applied as a CSS transform on the <svg> element itself
+  // (translate then scale, transform-origin 0 0), never on the pre or
+  // its wrapper, so nothing here touches pre.mermaid's text content.
+  // It is idempotent: calling it again on an already-wrapped pre is a
+  // no-op.
+  function initZoomPan(pre) {
+    var svg = pre.querySelector("svg");
+    if (!svg) {
+      return;
+    }
+    var parent = pre.parentElement;
+    if (!parent || parent.classList.contains("zoom-wrap")) {
+      return;
+    }
+
+    var wrap = document.createElement("div");
+    wrap.className = "zoom-wrap";
+    wrap.title = "Ctrl/Cmd+scroll to zoom, drag to pan";
+    parent.insertBefore(wrap, pre);
+    wrap.appendChild(pre);
+
+    svg.style.transformOrigin = "0 0";
+    svg.style.maxWidth = "none";
+
+    var state = { scale: 1, x: 0, y: 0 };
+
+    function apply() {
+      svg.style.transform = "translate(" + state.x + "px, " + state.y + "px) scale(" + state.scale + ")";
+    }
+
+    function reset() {
+      state.scale = 1;
+      state.x = 0;
+      state.y = 0;
+      apply();
+    }
+
+    // zoomAt rescales around (clientX, clientY) - a viewport point, e.g.
+    // the mouse cursor - so that whatever diagram point sits under it
+    // stays under it after the scale changes.
+    function zoomAt(factor, clientX, clientY) {
+      var newScale = clampZoom(state.scale * factor);
+      if (newScale === state.scale) {
+        return;
+      }
+      var rect = wrap.getBoundingClientRect();
+      var originX = clientX - rect.left;
+      var originY = clientY - rect.top;
+      state.x = originX - ((originX - state.x) / state.scale) * newScale;
+      state.y = originY - ((originY - state.y) / state.scale) * newScale;
+      state.scale = newScale;
+      apply();
+    }
+
+    function zoomAtCenter(factor) {
+      var rect = wrap.getBoundingClientRect();
+      zoomAt(factor, rect.left + rect.width / 2, rect.top + rect.height / 2);
+    }
+
+    var controls = document.createElement("div");
+    controls.className = "zoom-controls";
+
+    var btnIn = document.createElement("button");
+    btnIn.type = "button";
+    btnIn.className = "zoom-btn";
+    btnIn.textContent = "+";
+    btnIn.title = "Zoom in";
+    btnIn.addEventListener("click", function () {
+      zoomAtCenter(ZOOM_STEP);
+    });
+
+    var btnOut = document.createElement("button");
+    btnOut.type = "button";
+    btnOut.className = "zoom-btn";
+    btnOut.textContent = "−";
+    btnOut.title = "Zoom out";
+    btnOut.addEventListener("click", function () {
+      zoomAtCenter(1 / ZOOM_STEP);
+    });
+
+    var btnReset = document.createElement("button");
+    btnReset.type = "button";
+    btnReset.className = "zoom-btn";
+    btnReset.textContent = "Reset";
+    btnReset.title = "Reset zoom and pan";
+    btnReset.addEventListener("click", reset);
+
+    controls.appendChild(btnIn);
+    controls.appendChild(btnOut);
+    controls.appendChild(btnReset);
+    wrap.appendChild(controls);
+
+    // Only zoom on Ctrl/Cmd+wheel; a plain wheel is left alone so the
+    // page keeps scrolling normally over the diagram.
+    wrap.addEventListener(
+      "wheel",
+      function (e) {
+        if (!(e.ctrlKey || e.metaKey)) {
+          return;
+        }
+        e.preventDefault();
+        zoomAt(e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP, e.clientX, e.clientY);
+      },
+      { passive: false }
+    );
+
+    var dragging = false;
+    var lastX = 0;
+    var lastY = 0;
+
+    function stopDrag() {
+      if (!dragging) {
+        return;
+      }
+      dragging = false;
+      wrap.classList.remove("dragging");
+    }
+
+    wrap.addEventListener("mousedown", function (e) {
+      if (e.button !== 0 || e.target.closest(".zoom-controls")) {
+        return;
+      }
+      dragging = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      wrap.classList.add("dragging");
+      e.preventDefault();
+    });
+    document.addEventListener("mousemove", function (e) {
+      if (!dragging) {
+        return;
+      }
+      state.x += e.clientX - lastX;
+      state.y += e.clientY - lastY;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      apply();
+    });
+    document.addEventListener("mouseup", stopDrag);
+    window.addEventListener("blur", stopDrag);
+
+    apply();
+  }
+
+  // initZoomPanForBlocks calls initZoomPan on every block that
+  // rendered successfully (still `pre.mermaid`, now containing an
+  // <svg>). Blocks the fallback() path converted to `pre.source` are
+  // skipped automatically since they no longer hold an <svg>.
+  function initZoomPanForBlocks(blocks) {
+    blocks.forEach(function (el) {
+      if (el.classList.contains("mermaid")) {
+        initZoomPan(el);
+      }
+    });
+  }
+
   // renderMermaidBlocks renders every current `pre.mermaid` element.
   // Each block's raw source is captured before mermaid.run() runs, so
   // a rendering failure (mermaid.parseError, or run() rejecting) can
@@ -180,7 +353,12 @@
     // anything else (e.g. renderer-level failures).
     mermaid.parseError = fallback;
     try {
-      mermaid.run({ nodes: Array.prototype.slice.call(blocks) }).catch(fallback);
+      mermaid
+        .run({ nodes: Array.prototype.slice.call(blocks) })
+        .then(function () {
+          initZoomPanForBlocks(blocks);
+        })
+        .catch(fallback);
     } catch (e) {
       fallback();
     }
