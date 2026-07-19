@@ -45,6 +45,7 @@
 
   function copyTextFallback(text) {
     return new Promise(function (resolve, reject) {
+      var previousActive = document.activeElement;
       var ta = document.createElement("textarea");
       ta.value = text;
       // Keep it out of the visible layout and out of tab order while
@@ -54,15 +55,22 @@
       ta.style.left = "-1000px";
       ta.setAttribute("readonly", "");
       document.body.appendChild(ta);
-      ta.select();
-      ta.setSelectionRange(0, ta.value.length);
       var ok = false;
       try {
-        ok = document.execCommand("copy");
-      } catch (e) {
-        ok = false;
+        ta.focus();
+        ta.select();
+        ta.setSelectionRange(0, ta.value.length);
+        try {
+          ok = document.execCommand("copy");
+        } catch (e) {
+          ok = false;
+        }
+      } finally {
+        document.body.removeChild(ta);
+        if (previousActive && typeof previousActive.focus === "function") {
+          previousActive.focus();
+        }
       }
-      document.body.removeChild(ta);
       if (ok) {
         resolve();
       } else {
@@ -140,6 +148,36 @@
     return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, scale));
   }
 
+  // A report page can contain many zoom/pan-enabled diagrams, but only
+  // one of them can ever be dragged at a time (drags start on
+  // mousedown over a single .zoom-wrap). Rather than registering a
+  // document mousemove/mouseup and window blur listener per diagram,
+  // initZoomPan instances share a single module-level set of listeners
+  // below and coordinate through `activeDrag`, which holds the state
+  // of whichever diagram is currently being dragged (or null).
+  var activeDrag = null;
+
+  function stopActiveDrag() {
+    if (!activeDrag) {
+      return;
+    }
+    activeDrag.wrap.classList.remove("dragging");
+    activeDrag = null;
+  }
+
+  document.addEventListener("mousemove", function (e) {
+    if (!activeDrag) {
+      return;
+    }
+    activeDrag.state.x += e.clientX - activeDrag.lastX;
+    activeDrag.state.y += e.clientY - activeDrag.lastY;
+    activeDrag.lastX = e.clientX;
+    activeDrag.lastY = e.clientY;
+    activeDrag.apply();
+  });
+  document.addEventListener("mouseup", stopActiveDrag);
+  window.addEventListener("blur", stopActiveDrag);
+
   // initZoomPan wraps a successfully-rendered `pre.mermaid` (one that
   // now contains an <svg>, not a fallback source block) in a
   // `.zoom-wrap` container with +/-/Reset buttons overlaid, and wires
@@ -167,7 +205,6 @@
     wrap.appendChild(pre);
 
     svg.style.transformOrigin = "0 0";
-    svg.style.maxWidth = "none";
 
     var state = { scale: 1, x: 0, y: 0 };
 
@@ -185,14 +222,27 @@
     // zoomAt rescales around (clientX, clientY) - a viewport point, e.g.
     // the mouse cursor - so that whatever diagram point sits under it
     // stays under it after the scale changes.
+    //
+    // The origin has to be measured against the svg's own layout
+    // position, not the wrap's: the svg sits inside pre.mermaid's
+    // padding (and the wrap can have its own border), so wrap's rect
+    // is offset from where the transform (translate/scale, applied to
+    // the svg with transform-origin 0 0) actually measures from. Since
+    // getBoundingClientRect() on the svg reports its *transformed*
+    // (post translate+scale) box, and the local point (0,0) is
+    // unaffected by scale, subtracting the current translate
+    // (state.x/state.y) recovers the svg's untransformed layout
+    // origin in viewport coordinates.
     function zoomAt(factor, clientX, clientY) {
       var newScale = clampZoom(state.scale * factor);
       if (newScale === state.scale) {
         return;
       }
-      var rect = wrap.getBoundingClientRect();
-      var originX = clientX - rect.left;
-      var originY = clientY - rect.top;
+      var svgRect = svg.getBoundingClientRect();
+      var layoutLeft = svgRect.left - state.x;
+      var layoutTop = svgRect.top - state.y;
+      var originX = clientX - layoutLeft;
+      var originY = clientY - layoutTop;
       state.x = originX - ((originX - state.x) / state.scale) * newScale;
       state.y = originY - ((originY - state.y) / state.scale) * newScale;
       state.scale = newScale;
@@ -251,40 +301,14 @@
       { passive: false }
     );
 
-    var dragging = false;
-    var lastX = 0;
-    var lastY = 0;
-
-    function stopDrag() {
-      if (!dragging) {
-        return;
-      }
-      dragging = false;
-      wrap.classList.remove("dragging");
-    }
-
     wrap.addEventListener("mousedown", function (e) {
       if (e.button !== 0 || e.target.closest(".zoom-controls")) {
         return;
       }
-      dragging = true;
-      lastX = e.clientX;
-      lastY = e.clientY;
+      activeDrag = { wrap: wrap, state: state, apply: apply, lastX: e.clientX, lastY: e.clientY };
       wrap.classList.add("dragging");
       e.preventDefault();
     });
-    document.addEventListener("mousemove", function (e) {
-      if (!dragging) {
-        return;
-      }
-      state.x += e.clientX - lastX;
-      state.y += e.clientY - lastY;
-      lastX = e.clientX;
-      lastY = e.clientY;
-      apply();
-    });
-    document.addEventListener("mouseup", stopDrag);
-    window.addEventListener("blur", stopDrag);
 
     apply();
   }
@@ -350,13 +374,26 @@
     });
     // Two-tier fallback: mermaid.parseError catches syntax errors
     // surfaced during parsing, and the run() rejection catches
-    // anything else (e.g. renderer-level failures).
+    // anything else (e.g. renderer-level failures). fallback() is
+    // meant to catch failures in mermaid.run() itself (a rendering
+    // problem, where showing the raw source is the right recovery),
+    // not a bug in our own zoom/pan init code afterwards - so
+    // initZoomPanForBlocks is wrapped in its own try/catch here. That
+    // guarantees the .then() callback itself never throws/rejects, so
+    // the trailing .catch(fallback) below only ever fires for a
+    // rejection of run() itself, never for a problem in our init code.
     mermaid.parseError = fallback;
     try {
       mermaid
         .run({ nodes: Array.prototype.slice.call(blocks) })
         .then(function () {
-          initZoomPanForBlocks(blocks);
+          try {
+            initZoomPanForBlocks(blocks);
+          } catch (e) {
+            if (typeof console !== "undefined" && console.error) {
+              console.error(e);
+            }
+          }
         })
         .catch(fallback);
     } catch (e) {
