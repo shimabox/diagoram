@@ -10,6 +10,7 @@
 <header><a href="index.html">&larr; Portal</a><h1>{{.Title}}</h1></header>
 <main>
   <pre id="report-markdown" hidden>{{.Markdown}}</pre>
+  <p class="notice mermaid-fallback-notice" hidden>Some embedded diagrams could not be rendered in the browser. Their source is shown instead.</p>
   <div id="report-content" class="report"></div>
   <p><a href="{{.SourceFile}}">Download source ({{.SourceFile}})</a></p>
 </main>
