@@ -129,4 +129,4 @@ diagoram [options] <dir>
 - 2 層分離（言語モデル / 図モデル）、再帰的 Package ツリー、Arrow の種類別型、行配列で出力を組み立てる方式は流用
 - 循環依存の赤太線警告・rel-target フィルタ・外部パッケージの薄色表示は価値が高いので踏襲
 - Go では PHPDoc 型推測のような複雑さは不要。逆に Go 固有の概念（埋め込み・暗黙の interface 実装・exported/unexported・レシーバ）のモデル化が本質的な仕事
-- ソースは `~/shimabox/sandbox/php-class-diagram` にある（実装で迷ったら参照可）
+- ソースは [smeghead/php-class-diagram](https://github.com/smeghead/php-class-diagram)（実装で迷ったら参照可）
