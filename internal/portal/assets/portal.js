@@ -1,9 +1,10 @@
 // portal.js drives the small amount of client-side behavior the
 // diagoram HTML portal needs: rendering embedded Mermaid sources with
-// mermaid.min.js, and rendering report.md with marked.min.js. It is
-// loaded from an external <script src> on every page that needs it so
-// no page relies on inline script, keeping a strict
-// `script-src 'self'` Content-Security-Policy workable.
+// mermaid.min.js, rendering report.md with marked.min.js, and adding
+// "Copy" buttons to source <pre> blocks. It is loaded from an external
+// <script src> on every page that needs it so no page relies on
+// inline script, keeping a strict `script-src 'self'` Content-Security-
+// Policy workable.
 //
 // diagoram analyzes third-party Go source, so every string this file
 // touches (type names, doc comments, warning text) may be adversarial.
@@ -25,6 +26,106 @@
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
+  }
+
+  // copyText copies text to the clipboard, returning a Promise that
+  // resolves on success. It prefers the async Clipboard API and falls
+  // back to a hidden, off-screen textarea + document.execCommand("copy")
+  // when that API is unavailable or rejects (e.g. an insecure or
+  // file:// origin in some browsers).
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text).catch(function () {
+        return copyTextFallback(text);
+      });
+    }
+    return copyTextFallback(text);
+  }
+
+  function copyTextFallback(text) {
+    return new Promise(function (resolve, reject) {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      // Keep it out of the visible layout and out of tab order while
+      // still selectable by execCommand("copy").
+      ta.style.position = "fixed";
+      ta.style.top = "-1000px";
+      ta.style.left = "-1000px";
+      ta.setAttribute("readonly", "");
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      var ok = false;
+      try {
+        ok = document.execCommand("copy");
+      } catch (e) {
+        ok = false;
+      }
+      document.body.removeChild(ta);
+      if (ok) {
+        resolve();
+      } else {
+        reject(new Error("copy failed"));
+      }
+    });
+  }
+
+  // addCopyButton wraps `pre` in a `.copy-wrap` container and adds a
+  // "Copy" button next to it (never inside it, so the button's own
+  // label text is never part of pre.textContent). It is idempotent:
+  // calling it again on an already-wrapped `pre` is a no-op, so
+  // repeated initCopyButtons() passes (e.g. after the Mermaid fallback
+  // converts a block to pre.source) never double-wrap.
+  function addCopyButton(pre) {
+    var parent = pre.parentElement;
+    if (!parent || parent.classList.contains("copy-wrap")) {
+      return;
+    }
+    var wrap = document.createElement("div");
+    wrap.className = "copy-wrap";
+    parent.insertBefore(wrap, pre);
+    wrap.appendChild(pre);
+
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "copy-btn";
+    btn.textContent = "Copy";
+    btn.addEventListener("click", function () {
+      copyText(pre.textContent).then(
+        function () {
+          btn.textContent = "Copied!";
+          btn.classList.add("copied");
+          setTimeout(function () {
+            btn.textContent = "Copy";
+            btn.classList.remove("copied");
+          }, 1500);
+        },
+        function () {
+          btn.textContent = "Copy failed";
+          setTimeout(function () {
+            btn.textContent = "Copy";
+          }, 1500);
+        }
+      );
+    });
+    wrap.appendChild(btn);
+  }
+
+  // initCopyButtons adds copy buttons to every source `<pre>` under
+  // `root` (document by default): standalone `pre.source` blocks
+  // (PlantUML/text/summary pages, and Mermaid blocks that fell back to
+  // source view) and non-mermaid `pre > code` blocks rendered inside a
+  // report. It deliberately excludes `pre.mermaid`, which holds live
+  // or in-flight Mermaid source and must not get a copy button while
+  // it does - see the fallback() call in renderMermaidBlocks for how
+  // those blocks get buttons once (if) they convert to pre.source.
+  function initCopyButtons(root) {
+    (root || document).querySelectorAll("pre.source, .report pre > code").forEach(function (el) {
+      var pre = el.tagName === "CODE" ? el.parentElement : el;
+      if (pre) {
+        addCopyButton(pre);
+      }
+    });
   }
 
   // renderMermaidBlocks renders every current `pre.mermaid` element.
@@ -64,6 +165,9 @@
       document.querySelectorAll(".mermaid-fallback-notice").forEach(function (n) {
         n.hidden = false;
       });
+      // The blocks above just became pre.source; give them copy
+      // buttons too.
+      initCopyButtons();
     }
 
     mermaid.initialize({
@@ -111,6 +215,7 @@
       pre.replaceWith(mermaidPre);
     });
 
+    initCopyButtons(out);
     renderMermaidBlocks();
   }
 
@@ -121,5 +226,6 @@
     } else if (page === "report") {
       renderReport();
     }
+    initCopyButtons();
   });
 })();

@@ -137,7 +137,7 @@ pre.mermaid-source {
   background: var(--code-bg);
   border: 1px solid var(--border);
   border-radius: 0.4rem;
-  padding: 1rem;
+  padding: 1rem 3.5rem 1rem 1rem;
   overflow-x: auto;
   white-space: pre;
   font-family: "SFMono-Regular", Consolas, Menlo, monospace;
@@ -153,10 +153,43 @@ pre.mermaid {
   background: var(--code-bg);
   border: 1px solid var(--border);
   border-radius: 0.4rem;
-  padding: 1rem;
+  padding: 1rem 3.5rem 1rem 1rem;
   overflow-x: auto;
   font-family: "SFMono-Regular", Consolas, Menlo, monospace;
   font-size: 0.85rem;
+}
+
+/* .copy-wrap wraps a source pre/code block so its "Copy" button can be
+   positioned in the top-right corner without affecting the pre's own
+   layout or becoming part of its copyable text content. */
+.copy-wrap {
+  position: relative;
+}
+
+.copy-btn {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.3rem;
+  background: var(--card-bg);
+  color: var(--fg);
+  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.copy-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.copy-btn.copied {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .report table {

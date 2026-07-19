@@ -12,6 +12,7 @@
 {{if .Skipped}}
   <p class="notice">{{.SkipReason}}</p>
   <pre class="source">{{.Source}}</pre>
+  <script src="assets/portal.js"></script>
 {{else}}
   <p class="notice mermaid-fallback-notice" hidden>This diagram could not be rendered in the browser. Showing its source instead.</p>
   <pre class="mermaid">{{.Source}}</pre>
