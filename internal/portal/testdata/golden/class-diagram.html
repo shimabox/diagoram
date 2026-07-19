@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Class diagram - diagoram portal</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="mermaid">
+<header><a href="index.html">&larr; Portal</a><h1>Class diagram</h1></header>
+<main>
+
+  <p class="notice mermaid-fallback-notice" hidden>This diagram could not be rendered in the browser. Showing its source instead.</p>
+  <pre class="mermaid">classDiagram
+    class Widget[&#34;Widget&#34;] {
+        &#43;Name string
+        &#43;Tags string[]
+    }
+</pre>
+  <script src="assets/vendor/mermaid.min.js"></script>
+  <script src="assets/portal.js"></script>
+
+  <p><a href="class-diagram.mmd">Download source (class-diagram.mmd)</a></p>
+</main>
+</body>
+</html>
