@@ -98,13 +98,13 @@ func Generate(outDir string, a Artifacts, meta Meta) (*Result, error) {
 
 	pages := []func() error{
 		func() error {
-			return writeMermaidPage(outDir, "class-diagram.html", "Class diagram", "class-diagram.mmd", a.ClassMermaid)
+			return writeMermaidPage(outDir, "class-diagram.html", "Types and relationships", "class-diagram.mmd", a.ClassMermaid)
 		},
 		func() error {
 			return writeMermaidPage(outDir, "package-diagram.html", "Package diagram", "package-diagram.mmd", a.PackageMermaid)
 		},
 		func() error {
-			return writePumlPage(outDir, "class-diagram-puml.html", "Class diagram (PlantUML source)", "class-diagram.puml", a.ClassPlantUML)
+			return writePumlPage(outDir, "class-diagram-puml.html", "Types and relationships (PlantUML source)", "class-diagram.puml", a.ClassPlantUML)
 		},
 		func() error {
 			return writePumlPage(outDir, "package-diagram-puml.html", "Package diagram (PlantUML source)", "package-diagram.puml", a.PackagePlantUML)
