@@ -67,13 +67,17 @@ internal/portal/
 │   ├── index.html.tmpl    // ポータル（カード一覧 + ステータス）
 │   ├── mermaid.html.tmpl  // Mermaid 図ページ（図ソースをインライン埋め込み）
 │   ├── svg.html.tmpl      // PlantUML SVG 閲覧ページ
-│   └── text.html.tmpl     // summary / report を <pre> 表示
+│   ├── report.html.tmpl   // report.md を marked.js でクライアントサイド描画
+│   └── text.html.tmpl     // summary を <pre> 表示
 ├── assets/
 │   ├── style.css
 │   └── vendor/
 │       ├── mermaid.min.js       // vendored
 │       ├── mermaid.version.txt  // バージョン・取得元 URL・sha256
-│       └── MERMAID-LICENSE      // MIT ライセンス全文
+│       ├── MERMAID-LICENSE      // MIT ライセンス全文
+│       ├── marked.min.js        // vendored（Markdown → HTML、約 40KB）
+│       ├── marked.version.txt
+│       └── MARKED-LICENSE       // MIT ライセンス全文
 ├── portal_test.go
 └── plantuml_test.go
 ```
@@ -123,7 +127,7 @@ func DetectRunner(mode string) (Runner, string, error) // mode = "auto"|"off"|pa
 ├── class-diagram.puml / package-diagram.puml        (ソース)
 ├── class-diagram.svg / package-diagram.svg          (PlantUML 検出時のみ)
 ├── class-diagram-plantuml.html / package-diagram-plantuml.html
-├── report.md / report.html                          (report.html は <pre> 表示)
+├── report.md / report.html                          (marked.js で Markdown 描画 + 埋め込み Mermaid も描画)
 └── summary.txt / summary.html
 ```
 
@@ -139,13 +143,18 @@ func DetectRunner(mode string) (Runner, string, error) // mode = "auto"|"off"|pa
   + ヘッダに Meta（dir, module, version, PlantUML status）。CSS は 100 行程度、外部 CDN・Web フォントなし。文言は英語
 - タイムスタンプは出力に含めない（golden テストの決定性のため）
 
-## 4. mermaid.min.js の vendoring
+## 4. JS アセットの vendoring（mermaid.min.js / marked.min.js）
 
-- 入手元: `https://cdn.jsdelivr.net/npm/mermaid@<ver>/dist/mermaid.min.js`
+- mermaid 入手元: `https://cdn.jsdelivr.net/npm/mermaid@<ver>/dist/mermaid.min.js`
   （UMD 単一ファイル。ESM 版はチャンク分割されるため不可）。11.x にピン留め
 - サイズ約 2.5〜3 MB。まず素の embed で実装し、問題になれば gzip embed + `compress/gzip` 展開（約 900 KB）へ切替
   （assets.go に閉じているので差し替えは局所的）
-- リポジトリにコミット。`mermaid.version.txt` にバージョン・URL・sha256 を記録、
+- marked 入手元: `https://cdn.jsdelivr.net/npm/marked@<ver>/marked.min.js`（UMD 単一ファイル、約 40KB、MIT）。
+  report.html で `marked.parse()` により Markdown をクライアントサイド描画し、
+  変換後の `pre > code.language-mermaid` を `<pre class="mermaid">` に差し替えてから `mermaid.run()` を呼ぶ。
+  これによりレポート埋め込みの Mermaid 図もポータル上でそのまま閲覧できる。
+  Go 側に Markdown 変換ライブラリは追加しない（go.mod の依存ゼロ方針を維持）
+- 両方ともリポジトリにコミット。`*.version.txt` にバージョン・URL・sha256 を記録、
   `.gitattributes` に `internal/portal/assets/vendor/* linguist-vendored` を追加、MIT ライセンス全文を同梱
 
 ## 5. PlantUML 検出・実行（plantuml.go）
@@ -207,7 +216,7 @@ if opts.HTMLDir != "" {
 
 | # | 内容 | 依存 | 完了条件 |
 |---|---|---|---|
-| 1 | mermaid.min.js の vendoring（取得・version.txt・LICENSE・.gitattributes） | なし | sha256 記録済みでコミットされている |
+| 1 | mermaid.min.js / marked.min.js の vendoring（取得・version.txt・LICENSE・.gitattributes） | なし | sha256 記録済みでコミットされている |
 | 2 | internal/portal コア（Generate / templates / embed / style.css、Runner は IF 定義のみ）+ portal_test.go | 1 | `go test ./internal/portal` green、file:// で Mermaid 描画を実ブラウザ確認 |
 | 3 | PlantUML Runner（DetectRunner / 各 Runner / timeout）+ plantuml_test.go | 2 | 検出 3 経路 + off + timeout のテスト green |
 | 4 | CLI 配線（Options / parseArgs / usage / 検証 / Run 分岐 + runPortal） | 2, 3 | `go run ./cmd/diagoram --html=/tmp/p .` でポータル一式が生成される |
@@ -225,9 +234,19 @@ if opts.HTMLDir != "" {
 - runPortal と Run のフィルタ適用ロジック約 15 行の重複 → 将来 `buildClassDiagram()` として共通化
 - バイナリ/リポジトリ +3MB → 問題になれば gzip embed へ切替
 
+**決定済み（レビュー回答反映）**
+
+- report.md の HTML 化: vendored marked.min.js によるクライアントサイド描画を採用
+  （Go 依存ゼロを維持しつつ、レポート内の Mermaid 図も描画される。§4 参照）
+- 出力ディレクトリが非空の場合: 「上書きのみ・削除しない」を既定とする
+
 **未決事項**
 
 - `--plantuml` の最終形（`auto|off|<command>` で足りるか、`docker` 明示指定を許すか）
-- report.md の HTML 化は `<pre>` 表示に留める（依存ゼロ維持のため goldmark 等は入れない）方針で良いか
-- 出力ディレクトリが非空だった場合の扱い（本計画は「上書きのみ・削除しない」を既定）
-- update-dogfood.sh への組み込み（GitHub Pages 公開等）は今回スコープ外。README にコマンド例のみ記載
+
+**フォローアップ（今回スコープ外・後で対応可能）**
+
+- dogfooding のポータル公開: 本機能マージ後に GitHub Actions ワークフローを 1 本追加し、
+  `go run ./cmd/diagoram --html=_site --exclude-dir=tmp .` → `actions/deploy-pages` で
+  GitHub Pages に自動公開できる（リポジトリ設定で Pages を有効化するだけ。追加実装は不要）。
+  今回は README にコマンド例のみ記載
