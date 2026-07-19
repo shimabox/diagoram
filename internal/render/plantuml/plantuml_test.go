@@ -26,7 +26,7 @@ func TestRenderEdgesShowsSourceReasons(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(got, "Wrapper ..> Key : field; map-key") {
+	if !strings.Contains(got, "Wrapper ..> Key : field, map-key") {
 		t.Errorf("Render(ShowEdgeReasons) = %q, want field and map-key reasons", got)
 	}
 }
