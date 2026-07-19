@@ -68,6 +68,10 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
+          # Only the build job's binaries; without this pattern the
+          # docker job's auto-uploaded *.dockerbuild record artifact is
+          # also downloaded and ends up in the release assets.
+          pattern: diagoram-*
           path: dist
           merge-multiple: true
 
@@ -96,6 +100,10 @@ jobs:
 
       - name: Build and push image
         uses: docker/build-push-action@v6
+        env:
+          # Don't upload the build record artifact; it is not a release
+          # asset and confuses unfiltered artifact downloads.
+          DOCKER_BUILD_RECORD_UPLOAD: "false"
         with:
           context: .
           platforms: linux/amd64,linux/arm64
