@@ -101,17 +101,17 @@ jobs:
       - name: Determine image tags
         id: image_tag
         # Docker convention: image tags drop the "v" prefix (v0.2.0 ->
-        # 0.2.0). "latest" is only added for stable X.Y.Z tags so that a
-        # prerelease like v0.2.0-rc.1 does not move it.
+        # 0.2.0). "latest" is only added for a strict stable X.Y.Z tag, so
+        # a prerelease like v0.2.0-rc.1 or a non-semver tag like v0.2 /
+        # vnext does not move it.
         run: |
           version="${GITHUB_REF_NAME#v}"
           {
             echo "tags<<EOF"
             echo "ghcr.io/${GITHUB_REPOSITORY}:${version}"
-            case "$version" in
-              *-*) ;;
-              *) echo "ghcr.io/${GITHUB_REPOSITORY}:latest" ;;
-            esac
+            if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "ghcr.io/${GITHUB_REPOSITORY}:latest"
+            fi
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
