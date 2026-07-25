@@ -5,10 +5,24 @@ name: release
 # goreleaser, to keep this workflow easy to read end-to-end. The
 # version is embedded into the binary the same way as the Dockerfile
 # does, via -ldflags -X internal/cli.version.
+#
+# workflow_dispatch runs only the test and docker jobs, with a
+# simulated tag, so the image build and tag derivation can be verified
+# without pushing a real git tag. It builds but does not push unless
+# the "push" input is set.
 on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Tag to simulate (e.g. v0.2.0-rc.1)'
+        required: true
+      push:
+        description: 'Push the image to GHCR'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -26,6 +40,9 @@ jobs:
       - run: go test ./... -count=1
 
   build:
+    # Binaries and the GitHub release only make sense for a real tag
+    # push; workflow_dispatch is for verifying the docker job.
+    if: github.event_name == 'push'
     needs: test
     runs-on: ubuntu-latest
     strategy:
@@ -61,6 +78,7 @@ jobs:
           path: dist/*
 
   release:
+    if: github.event_name == 'push'
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -104,8 +122,11 @@ jobs:
         # 0.2.0). "latest" is only added for a strict stable X.Y.Z tag, so
         # a prerelease like v0.2.0-rc.1 or a non-semver tag like v0.2 /
         # vnext does not move it.
+        env:
+          # The real tag on push, the simulated one on workflow_dispatch.
+          REF_NAME: ${{ inputs.version || github.ref_name }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${REF_NAME#v}"
           {
             echo "tags<<EOF"
             echo "ghcr.io/${GITHUB_REPOSITORY}:${version}"
@@ -124,7 +145,8 @@ jobs:
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: true
+          # Tag pushes always publish; manual runs only when asked to.
+          push: ${{ github.event_name == 'push' || inputs.push }}
           build-args: |
-            VERSION=${{ github.ref_name }}
+            VERSION=${{ inputs.version || github.ref_name }}
           tags: ${{ steps.image_tag.outputs.tags }}
