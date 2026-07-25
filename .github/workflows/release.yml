@@ -9,7 +9,11 @@ name: release
 # workflow_dispatch runs only the test and docker jobs, with a
 # simulated tag, so the image build and tag derivation can be verified
 # without pushing a real git tag. It builds but does not push unless
-# the "push" input is set.
+# the "push" input is set, and a manual push only ever goes to an
+# isolated manual-<run id> tag: the ref a manual run builds from need
+# not match inputs.version, so letting it write release tags would
+# break the guarantee that the image named after a git tag was built
+# from that tag.
 on:
   push:
     tags:
@@ -20,7 +24,7 @@ on:
         description: 'Tag to simulate (e.g. v0.2.0-rc.1)'
         required: true
       push:
-        description: 'Push the image to GHCR'
+        description: 'Push the image to GHCR (isolated manual-<run id> tag only)'
         type: boolean
         default: false
 
@@ -127,12 +131,20 @@ jobs:
           REF_NAME: ${{ inputs.version || github.ref_name }}
         run: |
           version="${REF_NAME#v}"
+          tags="ghcr.io/${GITHUB_REPOSITORY}:${version}"
+          if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            tags+=$'\n'"ghcr.io/${GITHUB_REPOSITORY}:latest"
+          fi
+          echo "release tags for ${REF_NAME}:"
+          echo "$tags"
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            # Manual runs must never write release tags (see the header
+            # comment); the derived tags above are for verification only.
+            tags="ghcr.io/${GITHUB_REPOSITORY}:manual-${GITHUB_RUN_ID}"
+          fi
           {
             echo "tags<<EOF"
-            echo "ghcr.io/${GITHUB_REPOSITORY}:${version}"
-            if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "ghcr.io/${GITHUB_REPOSITORY}:latest"
-            fi
+            echo "$tags"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
