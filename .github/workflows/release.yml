@@ -5,10 +5,28 @@ name: release
 # goreleaser, to keep this workflow easy to read end-to-end. The
 # version is embedded into the binary the same way as the Dockerfile
 # does, via -ldflags -X internal/cli.version.
+#
+# workflow_dispatch runs only the test and docker jobs, with a
+# simulated tag, so the image build and tag derivation can be verified
+# without pushing a real git tag. It builds but does not push unless
+# the "push" input is set, and a manual push only ever goes to an
+# isolated manual-<run id> tag: the ref a manual run builds from need
+# not match inputs.version, so letting it write release tags would
+# break the guarantee that the image named after a git tag was built
+# from that tag.
 on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Tag to simulate (e.g. v0.2.0-rc.1)'
+        required: true
+      push:
+        description: 'Push the image to GHCR (isolated manual-<run id> tag only)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -26,6 +44,9 @@ jobs:
       - run: go test ./... -count=1
 
   build:
+    # Binaries and the GitHub release only make sense for a real tag
+    # push; workflow_dispatch is for verifying the docker job.
+    if: github.event_name == 'push'
     needs: test
     runs-on: ubuntu-latest
     strategy:
@@ -61,6 +82,7 @@ jobs:
           path: dist/*
 
   release:
+    if: github.event_name == 'push'
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -104,14 +126,25 @@ jobs:
         # 0.2.0). "latest" is only added for a strict stable X.Y.Z tag, so
         # a prerelease like v0.2.0-rc.1 or a non-semver tag like v0.2 /
         # vnext does not move it.
+        env:
+          # The real tag on push, the simulated one on workflow_dispatch.
+          REF_NAME: ${{ inputs.version || github.ref_name }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${REF_NAME#v}"
+          tags="ghcr.io/${GITHUB_REPOSITORY}:${version}"
+          if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            tags+=$'\n'"ghcr.io/${GITHUB_REPOSITORY}:latest"
+          fi
+          echo "release tags for ${REF_NAME}:"
+          echo "$tags"
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            # Manual runs must never write release tags (see the header
+            # comment); the derived tags above are for verification only.
+            tags="ghcr.io/${GITHUB_REPOSITORY}:manual-${GITHUB_RUN_ID}"
+          fi
           {
             echo "tags<<EOF"
-            echo "ghcr.io/${GITHUB_REPOSITORY}:${version}"
-            if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "ghcr.io/${GITHUB_REPOSITORY}:latest"
-            fi
+            echo "$tags"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -124,7 +157,8 @@ jobs:
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: true
+          # Tag pushes always publish; manual runs only when asked to.
+          push: ${{ github.event_name == 'push' || inputs.push }}
           build-args: |
-            VERSION=${{ github.ref_name }}
+            VERSION=${{ inputs.version || github.ref_name }}
           tags: ${{ steps.image_tag.outputs.tags }}
