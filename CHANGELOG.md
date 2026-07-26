@@ -6,6 +6,23 @@ diagoram was developed privately before its first public release; the
 pre-release milestones were folded into v0.1.0 below, and their history
 lives in git.
 
+## [v0.1.1] - 2026-07-26
+
+Release-infrastructure updates; no changes to the CLI itself.
+
+### Changed
+- Docker image tags no longer carry the "v" prefix (`0.1.1`, not
+  `v0.1.1`), following common registry convention. `latest` now only
+  moves for stable `X.Y.Z` releases. The `v0.1.0` image remains
+  available under both `v0.1.0` and `0.1.0`.
+- Binaries and the Docker image are built with Go 1.26 (previously
+  Go 1.24, which no longer receives security fixes).
+
+### Added
+- The release workflow can be run manually to verify the Docker build
+  and tag derivation without pushing a git tag; manual runs never
+  write release tags.
+
 ## [v0.1.0] - 2026-07-19
 
 Initial public release.
