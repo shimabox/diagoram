@@ -6,6 +6,22 @@ diagoram was developed privately before its first public release; the
 pre-release milestones were folded into v0.1.0 below, and their history
 lives in git.
 
+## [v0.1.2] - 2026-07-26
+
+### Added
+- Portal diagrams gained a fullscreen toggle on the zoom controls. It
+  uses the Fullscreen API where available and falls back to a
+  CSS-based overlay where it is not (e.g. iPhone Safari); both exit
+  on Esc.
+- Portal diagrams can now be panned with a single-finger drag on
+  touch devices, and all zoom control buttons carry accessible
+  names.
+
+### Changed
+- The portal diagram zoom limit is dynamic: a large diagram can now
+  be enlarged to twice its natural size instead of stopping at the
+  former fixed limit, which could leave big diagrams unreadable.
+
 ## [v0.1.1] - 2026-07-26
 
 Release-infrastructure updates; no changes to the CLI itself.
