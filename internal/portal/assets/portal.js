@@ -138,23 +138,26 @@
   }
 
   // Zoom/pan tuning: ZOOM_STEP is the per-click scale multiplier
-  // (also used per Ctrl/Cmd+wheel tick), and ZOOM_MIN/ZOOM_MAX bound
-  // how far a diagram can be shrunk or enlarged.
+  // (also used per Ctrl/Cmd+wheel tick), and ZOOM_MIN bounds how far a
+  // diagram can be shrunk. The upper bound is dynamic rather than a
+  // fixed constant: a large diagram starts fitted (shrunk) to the
+  // container width, so a fixed multiplier could leave it unreadable
+  // no matter how far the user zooms. Each diagram may instead zoom up
+  // to its natural 1:1 size times ZOOM_NATURAL_HEADROOM, with ZOOM_MAX
+  // as the floor for small diagrams (see maxZoom() in initZoomPan).
   var ZOOM_STEP = 1.25;
   var ZOOM_MIN = 0.2;
   var ZOOM_MAX = 10;
-
-  function clampZoom(scale) {
-    return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, scale));
-  }
+  var ZOOM_NATURAL_HEADROOM = 2;
 
   // A report page can contain many zoom/pan-enabled diagrams, but only
   // one of them can ever be dragged at a time (drags start on
-  // mousedown over a single .zoom-wrap). Rather than registering a
-  // document mousemove/mouseup and window blur listener per diagram,
-  // initZoomPan instances share a single module-level set of listeners
-  // below and coordinate through `activeDrag`, which holds the state
-  // of whichever diagram is currently being dragged (or null).
+  // mousedown/touchstart over a single .zoom-wrap). Rather than
+  // registering a document mousemove/mouseup/touchmove/touchend and
+  // window blur listener per diagram, initZoomPan instances share a
+  // single module-level set of listeners below and coordinate through
+  // `activeDrag`, which holds the state of whichever diagram is
+  // currently being dragged (or null).
   var activeDrag = null;
 
   function stopActiveDrag() {
@@ -165,29 +168,68 @@
     activeDrag = null;
   }
 
-  document.addEventListener("mousemove", function (e) {
+  function moveActiveDrag(clientX, clientY) {
     if (!activeDrag) {
       return;
     }
-    activeDrag.state.x += e.clientX - activeDrag.lastX;
-    activeDrag.state.y += e.clientY - activeDrag.lastY;
-    activeDrag.lastX = e.clientX;
-    activeDrag.lastY = e.clientY;
+    activeDrag.state.x += clientX - activeDrag.lastX;
+    activeDrag.state.y += clientY - activeDrag.lastY;
+    activeDrag.lastX = clientX;
+    activeDrag.lastY = clientY;
     activeDrag.apply();
+  }
+
+  document.addEventListener("mousemove", function (e) {
+    moveActiveDrag(e.clientX, e.clientY);
   });
   document.addEventListener("mouseup", stopActiveDrag);
   window.addEventListener("blur", stopActiveDrag);
 
+  // Single-finger drag mirrors the mousemove path above. touch-action:
+  // none (CSS, on .zoom-wrap) plus preventDefault here keep the page
+  // from scrolling while a diagram is being panned; both are needed
+  // since touch-action alone doesn't stop programmatic scroll and
+  // preventDefault alone can't run in time on a passive listener.
+  // Only fires while a touchstart on some wrap has set activeDrag, so
+  // touch scrolling elsewhere on the page is untouched.
+  document.addEventListener(
+    "touchmove",
+    function (e) {
+      if (!activeDrag || e.touches.length !== 1) {
+        return;
+      }
+      moveActiveDrag(e.touches[0].clientX, e.touches[0].clientY);
+      e.preventDefault();
+    },
+    { passive: false }
+  );
+  document.addEventListener("touchend", stopActiveDrag);
+  document.addEventListener("touchcancel", stopActiveDrag);
+
+  // Likewise, at most one diagram can be in the CSS-based fullscreen
+  // fallback (see initZoomPan) at a time, so a single module-level
+  // Escape-key listener can exit whichever one is currently active
+  // instead of every instance registering its own. Real fullscreen
+  // (the Fullscreen API branch) needs no such listener: the browser
+  // already handles Esc for that on its own.
+  var activeFullscreenFallback = null;
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && activeFullscreenFallback) {
+      activeFullscreenFallback.exit();
+    }
+  });
+
   // initZoomPan wraps a successfully-rendered `pre.mermaid` (one that
   // now contains an <svg>, not a fallback source block) in a
-  // `.zoom-wrap` container with +/-/Reset buttons overlaid, and wires
-  // up wheel-zoom (only while Ctrl/Cmd is held, so a plain wheel keeps
-  // scrolling the page), drag-to-pan, and button clicks. Zoom/pan
-  // state is applied as a CSS transform on the <svg> element itself
-  // (translate then scale, transform-origin 0 0), never on the pre or
-  // its wrapper, so nothing here touches pre.mermaid's text content.
-  // It is idempotent: calling it again on an already-wrapped pre is a
-  // no-op.
+  // `.zoom-wrap` container with +/-/fullscreen/Reset buttons overlaid,
+  // and wires up wheel-zoom (only while Ctrl/Cmd is held, so a plain
+  // wheel keeps scrolling the page), drag-to-pan (mouse and
+  // single-finger touch), and button clicks. Zoom/pan state is applied
+  // as a CSS transform on the <svg> element itself (translate then
+  // scale, transform-origin 0 0), never on the pre or its wrapper, so
+  // nothing here touches pre.mermaid's text content. It is idempotent:
+  // calling it again on an already-wrapped pre is a no-op.
   function initZoomPan(pre) {
     var svg = pre.querySelector("svg");
     if (!svg) {
@@ -219,6 +261,23 @@
       apply();
     }
 
+    // maxZoom lets a diagram zoom in up to ZOOM_NATURAL_HEADROOM times
+    // its natural (1:1, viewBox) size, falling back to ZOOM_MAX for
+    // diagrams that are already at or below that floor. Reaching the
+    // natural size needs scale naturalWidth/fittedWidth, where
+    // fittedWidth is the untransformed on-screen width - dividing out
+    // the current scale from the svg's (transformed) bounding rect.
+    // Computed lazily, on every zoom, because the fitted width follows
+    // the container's current on-screen size, not a fixed value.
+    function maxZoom() {
+      var naturalWidth = svg.viewBox.baseVal ? svg.viewBox.baseVal.width : 0;
+      var fittedWidth = svg.getBoundingClientRect().width / state.scale;
+      if (naturalWidth <= 0 || fittedWidth <= 0) {
+        return ZOOM_MAX;
+      }
+      return Math.max(ZOOM_MAX, (naturalWidth / fittedWidth) * ZOOM_NATURAL_HEADROOM);
+    }
+
     // zoomAt rescales around (clientX, clientY) - a viewport point, e.g.
     // the mouse cursor - so that whatever diagram point sits under it
     // stays under it after the scale changes.
@@ -234,7 +293,7 @@
     // (state.x/state.y) recovers the svg's untransformed layout
     // origin in viewport coordinates.
     function zoomAt(factor, clientX, clientY) {
-      var newScale = clampZoom(state.scale * factor);
+      var newScale = Math.min(maxZoom(), Math.max(ZOOM_MIN, state.scale * factor));
       if (newScale === state.scale) {
         return;
       }
@@ -254,6 +313,59 @@
       zoomAt(factor, rect.left + rect.width / 2, rect.top + rect.height / 2);
     }
 
+    // Fullscreen support: prefer the standard Fullscreen API (with a
+    // WebKit-prefixed fallback for older WebKit engines), and fall
+    // back further to a CSS-based pseudo-fullscreen (a fixed-position
+    // overlay, toggled by class - see .fullscreen-fallback in
+    // style.css) when neither exists, which is the case for
+    // non-<video> elements in iPhone Safari. Both paths share the same
+    // button and both exit on Esc: the API path via the browser's own
+    // handling, the fallback path via the module-level keydown
+    // listener above (activeFullscreenFallback).
+    var requestFullscreen = wrap.requestFullscreen || wrap.webkitRequestFullscreen;
+    var exitFullscreenFn = document.exitFullscreen || document.webkitExitFullscreen;
+
+    function isNativeFullscreen() {
+      return (document.fullscreenElement || document.webkitFullscreenElement) === wrap;
+    }
+
+    function exitFullscreenFallback() {
+      wrap.classList.remove("fullscreen-fallback");
+      document.body.classList.remove("fullscreen-fallback-open");
+      if (activeFullscreenFallback && activeFullscreenFallback.exit === exitFullscreenFallback) {
+        activeFullscreenFallback = null;
+      }
+    }
+
+    function enterFullscreenFallback() {
+      // Only one fallback can be active at a time (mirrors activeDrag);
+      // exiting whichever one is currently up keeps that invariant
+      // even if a second diagram's button is clicked without the
+      // first one ever losing focus/Esc.
+      if (activeFullscreenFallback) {
+        activeFullscreenFallback.exit();
+      }
+      wrap.classList.add("fullscreen-fallback");
+      document.body.classList.add("fullscreen-fallback-open");
+      activeFullscreenFallback = { exit: exitFullscreenFallback };
+    }
+
+    function toggleFullscreen() {
+      if (requestFullscreen && exitFullscreenFn) {
+        if (isNativeFullscreen()) {
+          exitFullscreenFn.call(document);
+        } else {
+          requestFullscreen.call(wrap);
+        }
+        return;
+      }
+      if (wrap.classList.contains("fullscreen-fallback")) {
+        exitFullscreenFallback();
+      } else {
+        enterFullscreenFallback();
+      }
+    }
+
     var controls = document.createElement("div");
     controls.className = "zoom-controls";
 
@@ -262,6 +374,7 @@
     btnIn.className = "zoom-btn";
     btnIn.textContent = "+";
     btnIn.title = "Zoom in";
+    btnIn.setAttribute("aria-label", "Zoom in");
     btnIn.addEventListener("click", function () {
       zoomAtCenter(ZOOM_STEP);
     });
@@ -271,19 +384,30 @@
     btnOut.className = "zoom-btn";
     btnOut.textContent = "−";
     btnOut.title = "Zoom out";
+    btnOut.setAttribute("aria-label", "Zoom out");
     btnOut.addEventListener("click", function () {
       zoomAtCenter(1 / ZOOM_STEP);
     });
+
+    var btnFullscreen = document.createElement("button");
+    btnFullscreen.type = "button";
+    btnFullscreen.className = "zoom-btn";
+    btnFullscreen.textContent = "⛶";
+    btnFullscreen.title = "Toggle fullscreen";
+    btnFullscreen.setAttribute("aria-label", "Toggle fullscreen");
+    btnFullscreen.addEventListener("click", toggleFullscreen);
 
     var btnReset = document.createElement("button");
     btnReset.type = "button";
     btnReset.className = "zoom-btn";
     btnReset.textContent = "Reset";
     btnReset.title = "Reset zoom and pan";
+    btnReset.setAttribute("aria-label", "Reset zoom and pan");
     btnReset.addEventListener("click", reset);
 
     controls.appendChild(btnIn);
     controls.appendChild(btnOut);
+    controls.appendChild(btnFullscreen);
     controls.appendChild(btnReset);
     wrap.appendChild(controls);
 
@@ -309,6 +433,29 @@
       wrap.classList.add("dragging");
       e.preventDefault();
     });
+
+    // Single-finger drag starts a pan exactly like mousedown above; the
+    // shared document-level touchmove/touchend/touchcancel listeners
+    // (module scope, above) drive it from here via activeDrag. Passive
+    // here since nothing needs to be prevented yet - see the touchmove
+    // listener above for why it isn't passive.
+    wrap.addEventListener(
+      "touchstart",
+      function (e) {
+        if (e.touches.length !== 1 || e.target.closest(".zoom-controls")) {
+          return;
+        }
+        activeDrag = {
+          wrap: wrap,
+          state: state,
+          apply: apply,
+          lastX: e.touches[0].clientX,
+          lastY: e.touches[0].clientY,
+        };
+        wrap.classList.add("dragging");
+      },
+      { passive: true }
+    );
 
     apply();
   }
