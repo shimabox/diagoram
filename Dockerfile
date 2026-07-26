@@ -4,7 +4,7 @@
 # diagoram is pure go/parser + go/ast with zero external dependencies, so a
 # static, from-scratch image is possible and keeps the image tiny (a few
 # MB, not hundreds) -- see .claude/plans/07-phase7-docker-release.md.
-FROM golang:1.24-alpine AS build
+FROM golang:1.26-alpine AS build
 
 WORKDIR /src
 COPY go.mod ./
