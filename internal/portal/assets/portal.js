@@ -293,7 +293,13 @@
     // (state.x/state.y) recovers the svg's untransformed layout
     // origin in viewport coordinates.
     function zoomAt(factor, clientX, clientY) {
-      var newScale = Math.min(maxZoom(), Math.max(ZOOM_MIN, state.scale * factor));
+      // maxZoom() follows the container's on-screen size, so it can
+      // drop below the current scale after the container grows (e.g.
+      // entering fullscreen, or a window resize). Flooring the cap at
+      // state.scale keeps zooming in from *shrinking* the diagram in
+      // that case: "+" at the cap is a no-op instead.
+      var cap = Math.max(state.scale, maxZoom());
+      var newScale = Math.min(cap, Math.max(ZOOM_MIN, state.scale * factor));
       if (newScale === state.scale) {
         return;
       }
