@@ -202,6 +202,64 @@ pre.mermaid {
   border: 1px solid var(--border);
   border-radius: 0.4rem;
   max-height: 80vh;
+  /* A single-finger touch here drags/pans the diagram (see
+     initZoomPan in portal.js); without this the browser's own
+     touch-scroll gesture would fight the pan on touch devices. */
+  touch-action: none;
+}
+
+/* Native Fullscreen API: let the diagram wrap fill the screen instead
+   of staying capped at max-height/border. :-webkit-full-screen covers
+   older WebKit engines and is kept as a fully separate rule (rather
+   than joined via a comma) because an unrecognized pseudo-class
+   invalidates the whole selector list it appears in, which would drop
+   the :fullscreen rule too. */
+.zoom-wrap:fullscreen {
+  max-height: none;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  background: var(--bg);
+}
+
+.zoom-wrap:-webkit-full-screen {
+  max-height: none;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  background: var(--bg);
+}
+
+.zoom-wrap:fullscreen pre.mermaid {
+  height: 100%;
+}
+
+.zoom-wrap:-webkit-full-screen pre.mermaid {
+  height: 100%;
+}
+
+/* CSS-based fullscreen fallback for engines that expose no Fullscreen
+   API on non-<video> elements (e.g. iPhone Safari): portal.js toggles
+   this class instead of calling the API, turning the wrap into a
+   fixed-position overlay that covers the viewport. */
+.zoom-wrap.fullscreen-fallback {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  background: var(--bg);
+}
+
+.zoom-wrap.fullscreen-fallback pre.mermaid {
+  height: 100%;
+}
+
+/* Set alongside .fullscreen-fallback so the page underneath the
+   overlay can't be scrolled while it's open. */
+body.fullscreen-fallback-open {
+  overflow: hidden;
 }
 
 .zoom-wrap pre.mermaid {
@@ -241,6 +299,10 @@ pre.mermaid {
   font-size: 0.75rem;
   line-height: 1.4;
   cursor: pointer;
+  /* Rapid +/- clicking can otherwise select the button's own label
+     text (e.g. "Reset") like any other text on the page. */
+  user-select: none;
+  -webkit-user-select: none;
   transition: border-color 0.15s ease, color 0.15s ease;
 }
 
